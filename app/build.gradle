@@ -9,7 +9,7 @@ android {
     defaultConfig {
         applicationId "com.example.ml_demo"
         minSdk 24
-        targetSdk 35
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
@@ -22,17 +22,37 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
+
+    aaptOptions {
+        noCompress "tflite"
+    }
+    buildToolsVersion '34.0.0'
+    buildFeatures {
+        viewBinding true
+    }
+    dependenciesInfo {
+        includeInApk true
+        includeInBundle true
+    }
+    ndkVersion '29.0.13846066 rc3'
 }
 
 dependencies {
+    implementation libs.appcompat.v161
+    implementation libs.material.v190
+    implementation libs.constraintlayout
 
-    implementation libs.appcompat
-    implementation libs.material
-    testImplementation libs.junit
-    androidTestImplementation libs.ext.junit
-    androidTestImplementation libs.espresso.core
+    // TensorFlow Lite
+    implementation libs.tensorflow.lite
+    implementation libs.tensorflow.lite.gpu
+    implementation libs.tensorflow.lite.support
+
+    // 图片处理
+    implementation libs.glide
+    annotationProcessor libs.compiler
 }
