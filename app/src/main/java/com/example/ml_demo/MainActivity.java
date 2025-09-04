@@ -1,176 +1,108 @@
-
 package com.example.ml_demo;
 
-import android.Manifest;
-import android.content.Intent;
-import android.content.pm.PackageManager;
+import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
-import android.net.Uri;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.os.Bundle;
-import android.provider.MediaStore;
-import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
-import android.widget.TextView;
-import android.widget.Toast;
 
+import org.pytorch.IValue;
+import org.pytorch.LiteModuleLoader;
+import org.pytorch.Module;
+import org.pytorch.Tensor;
+import org.pytorch.torchvision.TensorImageUtils;
+
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
-public class MainActivity extends AppCompatActivity {
-
-  private static final int PICK_IMAGE_REQUEST = 1;
-  private static final int PERMISSION_REQUEST_CODE = 100;
-
-  private ImageView imageView;
-  private EditText editText;
-  private Button btnSelectImage, btnPredict;
-  private TextView textResult;
-  private ProgressBar progressBar;
-
-  private Bitmap selectedBitmap;
-  private LocalModelManager modelManager;
+public class MainActivity extends Activity {
+  Module mModule;
+  String ASSETS_PATH = "";
+  String MODEL_NAME = "u2netp_mobile.ptl";
+  String IMG_NAME = "input.png";
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main);
+    
+    String MODEL_PATH = assetFilePath(this, MODEL_NAME);
+    mModule = LiteModuleLoader.load(MODEL_PATH);
 
-    // 初始化视图
-    initViews();
+    String IMG_PATH = assetFilePath(this, IMG_NAME);
+    Bitmap bitmap = BitmapFactory.decodeFile(IMG_PATH);
+    Bitmap resized = Bitmap.createScaledBitmap(bitmap, 320, 320, true);
 
-    // 初始化模型管理器
-    modelManager = new LocalModelManager(this);
+    Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
+        resized,
+        TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
+        TensorImageUtils.TORCHVISION_NORM_STD_RGB
+    );
 
-    // 加载模型
-    loadModel();
 
-    // 检查权限
-    checkPermissions();
+    // 推理
+    Tensor output = mModule.forward(IValue.from(inputTensor)).toTuple()[0].toTensor();
 
-    // 设置点击事件
-    setupClickListeners();
+    float[] scores = output.getDataAsFloatArray();
+    // scores 的 shape = (1, 1, 320, 320)，即预测 mask
+
+    float[] preds = output.getDataAsFloatArray();
+    float min = Float.MAX_VALUE, max = -Float.MAX_VALUE;
+
+    for (float v : preds) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+
+    for (int i = 0; i < preds.length; i++) {
+      preds[i] = (preds[i] - min) / (max - min);
+    }
+
+    int width = 320, height = 320;
+    Bitmap mask = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        int idx = y * width + x;
+        int gray = (int)(preds[idx] * 255);
+        int color = Color.rgb(gray, gray, gray);
+        mask.setPixel(x, y, color);
+      }
+    }
+
+    // resize 回原图大小
+    Bitmap finalMask = Bitmap.createScaledBitmap(mask, bitmap.getWidth(), bitmap.getHeight(), true);
+
+    ImageView imageView = new ImageView(this);
+    imageView.setImageBitmap(finalMask);
+    setContentView(imageView);
   }
 
-  private void initViews() {
-    imageView = findViewById(R.id.imageView);
-    editText = findViewById(R.id.editText);
-    btnSelectImage = findViewById(R.id.btnSelectImage);
-    btnPredict = findViewById(R.id.btnPredict);
-    textResult = findViewById(R.id.textResult);
-    progressBar = findViewById(R.id.progressBar);
-  }
-
-  private void loadModel() {
-    try {
-      modelManager.loadModel();
-      Toast.makeText(this, "模型加载成功", Toast.LENGTH_SHORT).show();
+  public static String assetFilePath(Context context, String assetName) {
+    File file = new File(context.getFilesDir(), assetName);
+    if (file.exists() && file.length() > 0) {
+      return file.getAbsolutePath();
+    }
+    try (InputStream is = context.getAssets().open(assetName)) {
+      try (OutputStream os = new FileOutputStream(file)) {
+        byte[] buffer = new byte[4 * 1024];
+        int read;
+        while ((read = is.read(buffer)) != -1) {
+          os.write(buffer, 0, read);
+        }
+        os.flush();
+      }
+      return file.getAbsolutePath();
     } catch (IOException e) {
       e.printStackTrace();
-      Toast.makeText(this, "模型加载失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+      return null;
     }
   }
 
-  private void checkPermissions() {
-    if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-        != PackageManager.PERMISSION_GRANTED) {
-      ActivityCompat.requestPermissions(this,
-          new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-          PERMISSION_REQUEST_CODE);
-    }
-  }
-
-  private void setupClickListeners() {
-    btnSelectImage.setOnClickListener(v -> showImagePickerDialog());
-    btnPredict.setOnClickListener(v -> predict());
-  }
-
-  private void showImagePickerDialog() {
-    Intent intent = new Intent();
-    intent.setType("image/*");
-    intent.setAction(Intent.ACTION_GET_CONTENT);
-    startActivityForResult(Intent.createChooser(intent, "选择图片"), PICK_IMAGE_REQUEST);
-  }
-
-  @Override
-  protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-    super.onActivityResult(requestCode, resultCode, data);
-
-    if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
-      Uri imageUri = data.getData();
-      try {
-        selectedBitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
-        // 调整图片大小
-        selectedBitmap = Bitmap.createScaledBitmap(selectedBitmap, 224, 224, true);
-        imageView.setImageBitmap(selectedBitmap);
-      } catch (IOException e) {
-        e.printStackTrace();
-        Toast.makeText(this, "图片加载失败", Toast.LENGTH_SHORT).show();
-      }
-    }
-  }
-
-  private void predict() {
-    if (selectedBitmap == null) {
-      Toast.makeText(this, "请先选择图片", Toast.LENGTH_SHORT).show();
-      return;
-    }
-
-    String text = editText.getText().toString().trim();
-    if (text.isEmpty()) {
-      Toast.makeText(this, "请输入文本描述", Toast.LENGTH_SHORT).show();
-      return;
-    }
-
-    // 显示进度条
-    progressBar.setVisibility(View.VISIBLE);
-    btnPredict.setEnabled(false);
-
-    // 在后台线程中运行推理
-    new Thread(() -> {
-      float probability = modelManager.predict(selectedBitmap, text);
-      int prediction = probability >= 0.5f ? 1 : 0;
-
-      runOnUiThread(() -> {
-        showResult(probability, prediction);
-      });
-    }).start();
-  }
-
-  private void showResult(float probability, int prediction) {
-    progressBar.setVisibility(View.GONE);
-    btnPredict.setEnabled(true);
-
-    String resultText = String.format(
-        "本地预测结果: %d\n置信度: %.2f%%",
-        prediction,
-        probability * 100
-    );
-    textResult.setText(resultText);
-  }
-
-  @Override
-  public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                                         int[] grantResults) {
-    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    if (requestCode == PERMISSION_REQUEST_CODE) {
-      if (grantResults.length > 0 && grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-        Toast.makeText(this, "需要存储权限才能选择图片", Toast.LENGTH_SHORT).show();
-      }
-    }
-  }
-
-  @Override
-  protected void onDestroy() {
-    super.onDestroy();
-    if (modelManager != null) {
-      modelManager.close();
-    }
-  }
 }
