@@ -12,9 +12,12 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,7 +38,10 @@ import androidx.annotation.Nullable;
 public class MainActivity extends Activity {
   private static final int PICK_IMAGE_REQUEST = 1;
   
-  public final String MODEL_NAME = "u2netp_mobile.ptl";
+  // 模型文件名
+  private static final String U2NET_MODEL = "u2net_mobile.ptl";
+  private static final String U2NETP_MODEL = "u2netp_mobile.ptl";
+  
   public final int WIDTH_SIZE = 320;
   public final int HEIGHT_SIZE = 320;
   
@@ -46,6 +52,10 @@ public class MainActivity extends Activity {
   private ImageView resultImageView;
   private TextView statusText;
   private LinearLayout resultLayout;
+  private Spinner modelSpinner;
+  
+  // 当前选择的模型
+  private String currentModelName = U2NETP_MODEL;
   
   // 保存当前处理的图片和预测结果
   private Bitmap currentOriginalBitmap;
@@ -66,6 +76,10 @@ public class MainActivity extends Activity {
     originalImageView = findViewById(R.id.originalImageView);
     resultImageView = findViewById(R.id.resultImageView);
     resultLayout = findViewById(R.id.resultLayout);
+    modelSpinner = findViewById(R.id.modelSpinner);
+    
+    // 初始化模型选择下拉框
+    setupModelSpinner();
     
     selectImageButton.setOnClickListener(new View.OnClickListener() {
       @Override
@@ -79,16 +93,10 @@ public class MainActivity extends Activity {
       @Override
       public void onClick(View v) {
         if (currentOriginalBitmap != null && currentPredictions != null) {
-          // 创建裁剪后的图片
           Bitmap croppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
-          
-          // 跳转到3D展示Activity
           Intent intent = new Intent(MainActivity.this, Display3DActivity.class);
-          
-          // 将裁剪后的图片保存到临时文件并传递路径
           String imagePath = saveBitmapToTempFile(croppedBitmap);
           intent.putExtra("cropped_image_path", imagePath);
-          
           startActivity(intent);
         } else {
           Toast.makeText(MainActivity.this, "请先选择图片并完成检测", Toast.LENGTH_SHORT).show();
@@ -97,16 +105,68 @@ public class MainActivity extends Activity {
     });
   }
   
+  private void setupModelSpinner() {
+    // 创建模型选项
+    String[] modelOptions = {"U2NET-P (轻量版 4.7MB)", "U2NET (完整版 173.6MB)"};
+    
+    // 创建适配器
+    ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+        android.R.layout.simple_spinner_item, modelOptions);
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+    
+    // 设置适配器
+    modelSpinner.setAdapter(adapter);
+    
+    // 设置默认选择U2NET-P
+    modelSpinner.setSelection(0);
+    
+    // 设置选择监听器
+    modelSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+      @Override
+      public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        String selectedModel = position == 0 ? U2NETP_MODEL : U2NET_MODEL;
+        
+        if (!selectedModel.equals(currentModelName)) {
+          currentModelName = selectedModel;
+          // 重新加载模型
+          loadModel();
+          
+          // 清除之前的结果
+          clearResults();
+        }
+      }
+      
+      @Override
+      public void onNothingSelected(AdapterView<?> parent) {
+        // 不做任何操作
+      }
+    });
+  }
+  
+  private void clearResults() {
+    resultLayout.setVisibility(View.GONE);
+    show3dImageButton.setVisibility(View.GONE);
+    currentOriginalBitmap = null;
+    currentPredictions = null;
+    originalImageView.setImageBitmap(null);
+    resultImageView.setImageBitmap(null);
+  }
+  
   private void loadModel() {
     try {
-      statusText.setText("正在加载模型...");
-      Toast.makeText(this, "正在加载模型...", Toast.LENGTH_SHORT).show();
-      String modelPath = assetFilePath(this, MODEL_NAME);
+      String modelDisplayName = currentModelName.equals(U2NETP_MODEL) ? "U2NET-P" : "U2NET";
+      statusText.setText("正在加载" + modelDisplayName + "模型...");
+      Toast.makeText(this, "正在加载" + modelDisplayName + "模型...", Toast.LENGTH_SHORT).show();
+      
+      String modelPath = assetFilePath(this, currentModelName);
       mModule = LiteModuleLoader.load(modelPath);
-      statusText.setText("模型加载完成，点击按钮选择图片");
+      
+      statusText.setText(modelDisplayName + "模型加载完成，点击按钮选择图片");
+      selectImageButton.setEnabled(true);
     } catch (Exception e) {
       statusText.setText("模型加载失败: " + e.getMessage());
       selectImageButton.setEnabled(false);
+      Toast.makeText(this, "模型加载失败，请检查模型文件", Toast.LENGTH_SHORT).show();
     }
   }
 
