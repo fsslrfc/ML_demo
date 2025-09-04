@@ -31,58 +31,111 @@ import java.io.OutputStream;
 import androidx.annotation.Nullable;
 
 public class MainActivity extends Activity {
+  private static final int PICK_IMAGE_REQUEST = 1;
+  
   public final String MODEL_NAME = "u2netp_mobile.ptl";
-  public final String IMG_NAME = "input.png";
-  public String MODEL_PATH;
-  public String IMG_PATH;
   public final int WIDTH_SIZE = 320;
   public final int HEIGHT_SIZE = 320;
-  Module mModule;
-  Bitmap mBitmap;
+  
+  private Module mModule;
+  private Button selectImageButton;
+  private ImageView originalImageView;
+  private ImageView resultImageView;
+  private TextView statusText;
+  private LinearLayout resultLayout;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
+
+    initView();
     
-    MODEL_PATH = assetFilePath(this, MODEL_NAME);
-    IMG_PATH = assetFilePath(this, IMG_NAME);
-
-    // 加载模型和图片
-    mModule = LiteModuleLoader.load(MODEL_PATH);
-    mBitmap = BitmapFactory.decodeFile(IMG_PATH);
-
-    Tensor inputTensor = transformImage2Tensor(mBitmap);
-
-    /*
-      模型推理
-      U^2-Net 为了保留残差信息，模型进行了下采样，一共会有 7 个输出，从 d1~d7。
-      d1 综合了所有层的信息，是一个精度最高的输出效果，所以这里我们取 d1。
-     */
-    Tensor output = mModule.forward(IValue.from(inputTensor)).toTuple()[0].toTensor();
-
-    // 将输出归一化
-    float[] preds = output.getDataAsFloatArray();
-    float min = Float.MAX_VALUE;
-    float max = -Float.MAX_VALUE;
-
-    for (float v : preds) {
-      if (v < min) min = v;
-      if (v > max) max = v;
+    loadModel();
+  }
+  
+  private void initView() {
+    statusText = findViewById(R.id.statusText);
+    selectImageButton = findViewById(R.id.selectImageButton);
+    originalImageView = findViewById(R.id.originalImageView);
+    resultImageView = findViewById(R.id.resultImageView);
+    resultLayout = findViewById(R.id.resultLayout);
+    
+    selectImageButton.setOnClickListener(new View.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        intent.setType("image/*");
+        startActivityForResult(intent, PICK_IMAGE_REQUEST);
+      }
+    });
+  }
+  
+  private void loadModel() {
+    try {
+      statusText.setText("正在加载模型...");
+      Toast.makeText(this, "正在加载模型...", Toast.LENGTH_SHORT).show();
+      String modelPath = assetFilePath(this, MODEL_NAME);
+      mModule = LiteModuleLoader.load(modelPath);
+      statusText.setText("模型加载完成，点击按钮选择图片");
+    } catch (Exception e) {
+      statusText.setText("模型加载失败: " + e.getMessage());
+      selectImageButton.setEnabled(false);
     }
-
-    for (int i = 0; i < preds.length; i++) {
-      preds[i] = (preds[i] - min) / (max - min);
-    }
-
-    // 将输出可视化
-    Bitmap outputMask = showImage(preds);
-
-    ImageView imageView = new ImageView(this);
-    imageView.setImageBitmap(outputMask);
-    setContentView(imageView);
   }
 
-  public Tensor transformImage2Tensor(Bitmap bitmap) {
+  @Override
+  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    super.onActivityResult(requestCode, resultCode, data);
+    
+    if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
+      Uri imageUri = data.getData();
+      try {
+        // 加载选中的图片
+        InputStream inputStream = getContentResolver().openInputStream(imageUri);
+        Bitmap selectedBitmap = BitmapFactory.decodeStream(inputStream);
+        
+        if (selectedBitmap != null) {
+          // 显示原图
+          originalImageView.setImageBitmap(selectedBitmap);
+          
+          // 开始预测
+          processImage(selectedBitmap);
+        } else {
+          Toast.makeText(this, "无法加载图片", Toast.LENGTH_SHORT).show();
+        }
+      } catch (Exception e) {
+        Toast.makeText(this, "图片加载失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+      }
+    }
+  }
+  
+  private void processImage(Bitmap bitmap) {
+    try {
+      statusText.setText("正在进行显著性检测...");
+      
+      // 预处理
+      Tensor inputTensor = transformImage2Tensor(bitmap);
+      
+      // 模型推理
+      Tensor output = mModule.forward(IValue.from(inputTensor)).toTuple()[0].toTensor();
+      
+      // 后处理
+      float[] preds = output.getDataAsFloatArray();
+      normalizePredictions(preds);
+      
+      // 可视化
+      Bitmap resultBitmap = createResultBitmap(preds, bitmap.getWidth(), bitmap.getHeight());
+      resultImageView.setImageBitmap(resultBitmap);
+      resultLayout.setVisibility(View.VISIBLE);
+      statusText.setText("显著性检测完成");
+    } catch (Exception e) {
+      statusText.setText("预测失败: " + e.getMessage());
+      Toast.makeText(this, "预测过程出错", Toast.LENGTH_SHORT).show();
+    }
+  }
+
+  private Tensor transformImage2Tensor(Bitmap bitmap) {
     // 修改图片尺寸为320 * 320(模型原本的输入大小就是320 * 320)
     Bitmap resized = Bitmap.createScaledBitmap(bitmap, WIDTH_SIZE, HEIGHT_SIZE, true);
 
@@ -93,8 +146,25 @@ public class MainActivity extends Activity {
         TensorImageUtils.TORCHVISION_NORM_STD_RGB
     );
   }
+  
+  private void normalizePredictions(float[] preds) {
+    // 找到最小值和最大值
+    float min = Float.MAX_VALUE;
+    float max = -Float.MAX_VALUE;
 
-  public Bitmap showImage(float[] preds) {
+    for (float v : preds) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+
+    // 归一化到 [0, 1] 范围
+    for (int i = 0; i < preds.length; i++) {
+      preds[i] = (preds[i] - min) / (max - min);
+    }
+  }
+
+  private Bitmap createResultBitmap(float[] preds, int originalWidth, int originalHeight) {
+    // 创建320x320的掩码图片
     Bitmap mask = Bitmap.createBitmap(WIDTH_SIZE, HEIGHT_SIZE, Bitmap.Config.ARGB_8888);
 
     for (int y = 0; y < HEIGHT_SIZE; y++) {
@@ -106,8 +176,8 @@ public class MainActivity extends Activity {
       }
     }
 
-    // 变回原图大小
-    return Bitmap.createScaledBitmap(mask, mBitmap.getWidth(), mBitmap.getHeight(), true);
+    // 缩放回原图大小
+    return Bitmap.createScaledBitmap(mask, originalWidth, originalHeight, true);
   }
 
   public static String assetFilePath(Context context, String assetName) {
