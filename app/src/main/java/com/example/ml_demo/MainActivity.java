@@ -2,11 +2,19 @@ package com.example.ml_demo;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
+import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
@@ -23,37 +31,39 @@ import java.io.OutputStream;
 import androidx.annotation.Nullable;
 
 public class MainActivity extends Activity {
+  public final String MODEL_NAME = "u2netp_mobile.ptl";
+  public final String IMG_NAME = "input.png";
+  public String MODEL_PATH;
+  public String IMG_PATH;
+  public final int WIDTH_SIZE = 320;
+  public final int HEIGHT_SIZE = 320;
   Module mModule;
-  String ASSETS_PATH = "";
-  String MODEL_NAME = "u2netp_mobile.ptl";
-  String IMG_NAME = "input.png";
+  Bitmap mBitmap;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     
-    String MODEL_PATH = assetFilePath(this, MODEL_NAME);
+    MODEL_PATH = assetFilePath(this, MODEL_NAME);
+    IMG_PATH = assetFilePath(this, IMG_NAME);
+
+    // 加载模型和图片
     mModule = LiteModuleLoader.load(MODEL_PATH);
+    mBitmap = BitmapFactory.decodeFile(IMG_PATH);
 
-    String IMG_PATH = assetFilePath(this, IMG_NAME);
-    Bitmap bitmap = BitmapFactory.decodeFile(IMG_PATH);
-    Bitmap resized = Bitmap.createScaledBitmap(bitmap, 320, 320, true);
+    Tensor inputTensor = transformImage2Tensor(mBitmap);
 
-    Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
-        resized,
-        TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
-        TensorImageUtils.TORCHVISION_NORM_STD_RGB
-    );
-
-
-    // 推理
+    /*
+      模型推理
+      U^2-Net 为了保留残差信息，模型进行了下采样，一共会有 7 个输出，从 d1~d7。
+      d1 综合了所有层的信息，是一个精度最高的输出效果，所以这里我们取 d1。
+     */
     Tensor output = mModule.forward(IValue.from(inputTensor)).toTuple()[0].toTensor();
 
-    float[] scores = output.getDataAsFloatArray();
-    // scores 的 shape = (1, 1, 320, 320)，即预测 mask
-
+    // 将输出归一化
     float[] preds = output.getDataAsFloatArray();
-    float min = Float.MAX_VALUE, max = -Float.MAX_VALUE;
+    float min = Float.MAX_VALUE;
+    float max = -Float.MAX_VALUE;
 
     for (float v : preds) {
       if (v < min) min = v;
@@ -64,24 +74,40 @@ public class MainActivity extends Activity {
       preds[i] = (preds[i] - min) / (max - min);
     }
 
-    int width = 320, height = 320;
-    Bitmap mask = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    // 将输出可视化
+    Bitmap outputMask = showImage(preds);
 
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        int idx = y * width + x;
+    ImageView imageView = new ImageView(this);
+    imageView.setImageBitmap(outputMask);
+    setContentView(imageView);
+  }
+
+  public Tensor transformImage2Tensor(Bitmap bitmap) {
+    // 修改图片尺寸为320 * 320(模型原本的输入大小就是320 * 320)
+    Bitmap resized = Bitmap.createScaledBitmap(bitmap, WIDTH_SIZE, HEIGHT_SIZE, true);
+
+    // 将图片转换为 Tensor
+    return TensorImageUtils.bitmapToFloat32Tensor(
+        resized,
+        TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
+        TensorImageUtils.TORCHVISION_NORM_STD_RGB
+    );
+  }
+
+  public Bitmap showImage(float[] preds) {
+    Bitmap mask = Bitmap.createBitmap(WIDTH_SIZE, HEIGHT_SIZE, Bitmap.Config.ARGB_8888);
+
+    for (int y = 0; y < HEIGHT_SIZE; y++) {
+      for (int x = 0; x < WIDTH_SIZE; x++) {
+        int idx = y * WIDTH_SIZE + x;
         int gray = (int)(preds[idx] * 255);
         int color = Color.rgb(gray, gray, gray);
         mask.setPixel(x, y, color);
       }
     }
 
-    // resize 回原图大小
-    Bitmap finalMask = Bitmap.createScaledBitmap(mask, bitmap.getWidth(), bitmap.getHeight(), true);
-
-    ImageView imageView = new ImageView(this);
-    imageView.setImageBitmap(finalMask);
-    setContentView(imageView);
+    // 变回原图大小
+    return Bitmap.createScaledBitmap(mask, mBitmap.getWidth(), mBitmap.getHeight(), true);
   }
 
   public static String assetFilePath(Context context, String assetName) {
