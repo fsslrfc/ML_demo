@@ -95,17 +95,17 @@
 
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:paddingBottom="20dp"
+                android:text="点击按钮选择图片进行显著性检测"
+                android:textSize="16sp" />
+
         </LinearLayout>
 
     </ScrollView>
-
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:paddingBottom="20dp"
-        android:text="点击按钮选择图片进行显著性检测"
-        android:textSize="16sp" />
 
 </LinearLayout>

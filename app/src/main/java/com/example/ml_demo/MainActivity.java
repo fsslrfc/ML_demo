@@ -46,6 +46,10 @@ public class MainActivity extends Activity {
   private ImageView resultImageView;
   private TextView statusText;
   private LinearLayout resultLayout;
+  
+  // 保存当前处理的图片和预测结果
+  private Bitmap currentOriginalBitmap;
+  private float[] currentPredictions;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -74,7 +78,21 @@ public class MainActivity extends Activity {
     show3dImageButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        // TODO: 实现3D效果
+        if (currentOriginalBitmap != null && currentPredictions != null) {
+          // 创建裁剪后的图片
+          Bitmap croppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
+          
+          // 跳转到3D展示Activity
+          Intent intent = new Intent(MainActivity.this, Display3DActivity.class);
+          
+          // 将裁剪后的图片保存到临时文件并传递路径
+          String imagePath = saveBitmapToTempFile(croppedBitmap);
+          intent.putExtra("cropped_image_path", imagePath);
+          
+          startActivity(intent);
+        } else {
+          Toast.makeText(MainActivity.this, "请先选择图片并完成检测", Toast.LENGTH_SHORT).show();
+        }
       }
     });
   }
@@ -168,24 +186,34 @@ public class MainActivity extends Activity {
 
   private void processImage(Bitmap bitmap) {
     try {
+      long startTime = System.currentTimeMillis();
+
       statusText.setText("正在进行显著性检测...");
 
       // 预处理
       Tensor inputTensor = transformImage2Tensor(bitmap);
+      long preprocessTime = System.currentTimeMillis() - startTime;
 
       // 模型推理
       Tensor output = mModule.forward(IValue.from(inputTensor)).toTuple()[0].toTensor();
+      long inferenceTime = System.currentTimeMillis() - startTime - preprocessTime;
 
       // 后处理
       float[] preds = output.getDataAsFloatArray();
       normalizePredictions(preds);
+      long postprocessTime = System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
+      
+      // 保存当前的原图和预测结果
+      currentOriginalBitmap = bitmap;
+      currentPredictions = preds.clone();
       
       // 可视化
       Bitmap resultBitmap = createResultBitmap(preds, bitmap.getWidth(), bitmap.getHeight());
       resultImageView.setImageBitmap(resultBitmap);
       resultLayout.setVisibility(View.VISIBLE);
       show3dImageButton.setVisibility(View.VISIBLE);
-      statusText.setText("显著性检测完成");
+      String timeInfo = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime, inferenceTime, postprocessTime);
+      statusText.setText("显著性检测完成" + timeInfo);
     } catch (Exception e) {
       statusText.setText("预测失败: " + e.getMessage());
       resultLayout.setVisibility(View.GONE);
@@ -237,6 +265,72 @@ public class MainActivity extends Activity {
 
     // 缩放回原图大小
     return Bitmap.createScaledBitmap(mask, originalWidth, originalHeight, true);
+  }
+  
+  private Bitmap createCroppedBitmap(Bitmap originalBitmap, float[] predictions) {
+    int width = originalBitmap.getWidth();
+    int height = originalBitmap.getHeight();
+    
+    // 创建带透明通道的结果图片
+    Bitmap croppedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    
+    // 将预测结果缩放到原图尺寸
+    Bitmap scaledMask = Bitmap.createScaledBitmap(
+        createMaskBitmap(predictions), width, height, true);
+    
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        // 获取原图像素
+        int originalPixel = originalBitmap.getPixel(x, y);
+        
+        // 获取显著性值（0-255）
+        int maskPixel = scaledMask.getPixel(x, y);
+        int saliency = Color.red(maskPixel); // 灰度图，RGB值相同
+        
+        // 根据显著性值设置透明度
+        // 显著性高的保留，显著性低的变透明
+        int alpha = saliency; // 直接使用显著性值作为alpha通道
+        
+        // 设置新像素（保持原色彩，调整透明度）
+        int newPixel = Color.argb(alpha, 
+            Color.red(originalPixel), 
+            Color.green(originalPixel), 
+            Color.blue(originalPixel));
+        
+        croppedBitmap.setPixel(x, y, newPixel);
+      }
+    }
+    
+    return croppedBitmap;
+  }
+  
+  private Bitmap createMaskBitmap(float[] predictions) {
+    Bitmap mask = Bitmap.createBitmap(WIDTH_SIZE, HEIGHT_SIZE, Bitmap.Config.ARGB_8888);
+    
+    for (int y = 0; y < HEIGHT_SIZE; y++) {
+      for (int x = 0; x < WIDTH_SIZE; x++) {
+        int idx = y * WIDTH_SIZE + x;
+        int gray = (int)(predictions[idx] * 255);
+        int color = Color.rgb(gray, gray, gray);
+        mask.setPixel(x, y, color);
+      }
+    }
+    
+    return mask;
+  }
+  
+  private String saveBitmapToTempFile(Bitmap bitmap) {
+    try {
+      File tempFile = new File(getCacheDir(), "cropped_image_" + System.currentTimeMillis() + ".png");
+      FileOutputStream out = new FileOutputStream(tempFile);
+      bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+      out.flush();
+      out.close();
+      return tempFile.getAbsolutePath();
+    } catch (IOException e) {
+      e.printStackTrace();
+      return null;
+    }
   }
 
   public static String assetFilePath(Context context, String assetName) {
