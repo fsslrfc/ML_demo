@@ -1,59 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:padding="20dp"
-    android:background="#f5f5f5">
-
-    <TextView
-        android:id="@+id/titleText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:text="显著性裁剪结果"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:paddingBottom="20dp"
-        android:textColor="#333333" />
-
-    <ImageView
-        android:id="@+id/croppedImageView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/titleText"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/descriptionText"
-        android:scaleType="centerInside"
-        android:background="#ffffff" />
-
-    <TextView
-        android:id="@+id/descriptionText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/backButton"
-        android:text="显著性高的区域保留原图，显著性低的区域变为透明"
-        android:textSize="14sp"
-        android:gravity="center"
-        android:paddingTop="10dp"
-        android:paddingBottom="20dp"
-        android:textColor="#666666" />
+    android:background="#f5f5f5"
+    android:padding="20dp">
 
     <Button
         android:id="@+id/backButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:padding="15dp"
         android:text="返回"
         android:textSize="16sp"
-        android:padding="15dp" />
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/historyLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="15dp"
+        app:layout_constraintBottom_toTopOf="@+id/backButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingEnd="10dp"
+            android:text="历史图片: "
+            android:textSize="16sp" />
+
+        <Spinner
+            android:id="@+id/historySpinner"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
+
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        app:layout_constraintBottom_toTopOf="@id/historyLayout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/titleText">
+
+        <ImageView
+            android:id="@+id/croppedImageView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#ffffff"
+            android:adjustViewBounds="true"
+            android:scaleType="centerInside"  />
+
+    </ScrollView>
+
+    <TextView
+        android:id="@+id/titleText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingBottom="20dp"
+        android:text="显著性裁剪结果"
+        android:textColor="#333333"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
