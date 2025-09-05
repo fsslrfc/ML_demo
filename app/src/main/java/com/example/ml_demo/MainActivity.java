@@ -32,34 +32,39 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 import androidx.annotation.Nullable;
 
 public class MainActivity extends Activity {
   private static final int PICK_IMAGE_REQUEST = 1;
-  
+
   // 模型文件名
   private static final String U2NET_MODEL = "u2net_mobile.ptl";
   private static final String U2NETP_MODEL = "u2netp_mobile.ptl";
-  
+
   public final int WIDTH_SIZE = 320;
   public final int HEIGHT_SIZE = 320;
-  
+
   private Module mModule;
   private Button selectImageButton;
-  private Button show3dImageButton;
+  private Button segmentImageButton;
   private ImageView originalImageView;
   private ImageView resultImageView;
   private TextView statusText;
   private LinearLayout resultLayout;
   private Spinner modelSpinner;
-  
-  // 当前选择的模型
+
   private String currentModelName = U2NETP_MODEL;
-  
-  // 保存当前处理的图片和预测结果
   private Bitmap currentOriginalBitmap;
   private float[] currentPredictions;
+  private List<String> modelOptions;
+  private ArrayAdapter<String> modelAdapter;
+  private String TEMP_FILE_PATH;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -68,99 +73,92 @@ public class MainActivity extends Activity {
     init();
     loadModel();
   }
-  
+
   private void init() {
     statusText = findViewById(R.id.statusText);
     selectImageButton = findViewById(R.id.selectImageButton);
-    show3dImageButton = findViewById(R.id.show3dImageButton);
+    segmentImageButton = findViewById(R.id.segmentImageButton);
     originalImageView = findViewById(R.id.originalImageView);
     resultImageView = findViewById(R.id.resultImageView);
     resultLayout = findViewById(R.id.resultLayout);
     modelSpinner = findViewById(R.id.modelSpinner);
-    
-    // 初始化模型选择下拉框
+
     setupModelSpinner();
-    
+
     selectImageButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        Intent intent = new Intent(Intent.ACTION_PICK,
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         intent.setType("image/*");
         startActivityForResult(intent, PICK_IMAGE_REQUEST);
       }
     });
-    show3dImageButton.setOnClickListener(new View.OnClickListener() {
+
+    segmentImageButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        if (currentOriginalBitmap != null && currentPredictions != null) {
-          Bitmap croppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
-          Intent intent = new Intent(MainActivity.this, Display3DActivity.class);
-          String imagePath = saveBitmapToTempFile(croppedBitmap);
+        if (currentOriginalBitmap != null) {
+          Bitmap displayBitmap = currentOriginalBitmap;
+          Intent intent = new Intent(MainActivity.this, DisplaySegmentActivity.class);
+          String imagePath = TEMP_FILE_PATH;
           intent.putExtra("cropped_image_path", imagePath);
           startActivity(intent);
         } else {
-          Toast.makeText(MainActivity.this, "请先选择图片并完成检测", Toast.LENGTH_SHORT).show();
+          Toast.makeText(MainActivity.this, "请先选择图片", Toast.LENGTH_SHORT).show();
         }
       }
     });
   }
-  
+
   private void setupModelSpinner() {
-    // 创建模型选项
-    String[] modelOptions = {"U2NET-P (轻量版 4.7MB)", "U2NET (完整版 173.6MB)"};
-    
-    // 创建适配器
-    ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+    modelOptions = new ArrayList<>();
+    modelOptions.add("U2NET-P (轻量版 4.7MB)");
+    modelOptions.add("U2NET (完整版 173.6MB)");
+
+    modelAdapter = new ArrayAdapter<>(this,
         android.R.layout.simple_spinner_item, modelOptions);
-    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-    
-    // 设置适配器
-    modelSpinner.setAdapter(adapter);
-    
-    // 设置默认选择U2NET-P
+    modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+
+    modelSpinner.setAdapter(modelAdapter);
     modelSpinner.setSelection(0);
-    
-    // 设置选择监听器
     modelSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
       @Override
       public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         String selectedModel = position == 0 ? U2NETP_MODEL : U2NET_MODEL;
-        
+
         if (!selectedModel.equals(currentModelName)) {
           currentModelName = selectedModel;
-          // 重新加载模型
           loadModel();
-          
-          // 清除之前的结果
           clearResults();
         }
       }
-      
+
       @Override
       public void onNothingSelected(AdapterView<?> parent) {
         // 不做任何操作
       }
     });
   }
-  
+
   private void clearResults() {
     resultLayout.setVisibility(View.GONE);
-    show3dImageButton.setVisibility(View.GONE);
+    segmentImageButton.setVisibility(View.GONE);
     currentOriginalBitmap = null;
     currentPredictions = null;
     originalImageView.setImageBitmap(null);
     resultImageView.setImageBitmap(null);
   }
-  
+
   private void loadModel() {
     try {
       String modelDisplayName = currentModelName.equals(U2NETP_MODEL) ? "U2NET-P" : "U2NET";
       statusText.setText("正在加载" + modelDisplayName + "模型...");
       Toast.makeText(this, "正在加载" + modelDisplayName + "模型...", Toast.LENGTH_SHORT).show();
-      
+
       String modelPath = assetFilePath(this, currentModelName);
       mModule = LiteModuleLoader.load(modelPath);
-      
+
       statusText.setText(modelDisplayName + "模型加载完成，点击按钮选择图片");
       selectImageButton.setEnabled(true);
     } catch (Exception e) {
@@ -173,20 +171,19 @@ public class MainActivity extends Activity {
   @Override
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
-    
+
     if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
       Uri imageUri = data.getData();
       try {
         // 加载选中的图片
         InputStream inputStream = getContentResolver().openInputStream(imageUri);
         Bitmap selectedBitmap = BitmapFactory.decodeStream(inputStream);
-        
+
         if (selectedBitmap != null) {
           // 根据EXIF信息旋转图片
           Bitmap rotatedBitmap = rotateImageBasedOnExif(selectedBitmap, imageUri);
           // 显示原图
           originalImageView.setImageBitmap(rotatedBitmap);
-          
           // 开始预测
           processImage(rotatedBitmap);
         } else {
@@ -204,9 +201,10 @@ public class MainActivity extends Activity {
       InputStream inputStream = getContentResolver().openInputStream(imageUri);
       if (inputStream != null) {
         ExifInterface exifInterface = new ExifInterface(inputStream);
-        int orientation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
+        int orientation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_UNDEFINED);
         inputStream.close();
-        
+
         switch (orientation) {
           case ExifInterface.ORIENTATION_ROTATE_90:
             return rotateBitmap(bitmap, 90);
@@ -231,24 +229,28 @@ public class MainActivity extends Activity {
     }
     return bitmap;
   }
-  
+
   private Bitmap rotateBitmap(Bitmap bitmap, float degrees) {
     Matrix matrix = new Matrix();
     matrix.postRotate(degrees);
     return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
   }
-  
+
   private Bitmap flipBitmap(Bitmap bitmap, boolean horizontal, boolean vertical) {
     Matrix matrix = new Matrix();
     matrix.preScale(horizontal ? -1 : 1, vertical ? -1 : 1);
     return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
   }
 
+  /**
+   * 模型预测
+   *
+   * @param bitmap
+   */
   private void processImage(Bitmap bitmap) {
     try {
-      long startTime = System.currentTimeMillis();
-
       statusText.setText("正在进行显著性检测...");
+      long startTime = System.currentTimeMillis();
 
       // 预处理
       Tensor inputTensor = transformImage2Tensor(bitmap);
@@ -261,23 +263,30 @@ public class MainActivity extends Activity {
       // 后处理
       float[] preds = output.getDataAsFloatArray();
       normalizePredictions(preds);
-      long postprocessTime = System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
-      
+      long postprocessTime =
+          System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
+
       // 保存当前的原图和预测结果
       currentOriginalBitmap = bitmap;
       currentPredictions = preds.clone();
-      
+
       // 可视化
       Bitmap resultBitmap = createResultBitmap(preds, bitmap.getWidth(), bitmap.getHeight());
       resultImageView.setImageBitmap(resultBitmap);
       resultLayout.setVisibility(View.VISIBLE);
-      show3dImageButton.setVisibility(View.VISIBLE);
-      String timeInfo = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime, inferenceTime, postprocessTime);
+      segmentImageButton.setVisibility(View.VISIBLE);
+
+      // 保存处理后的图片到缓存，用于历史记录
+      Bitmap croppedBitmap = createCroppedBitmap(bitmap, preds);
+      saveBitmapToTempFile(croppedBitmap);
+
+      String timeInfo = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime,
+          inferenceTime, postprocessTime);
       statusText.setText("显著性检测完成" + timeInfo);
     } catch (Exception e) {
       statusText.setText("预测失败: " + e.getMessage());
       resultLayout.setVisibility(View.GONE);
-      show3dImageButton.setVisibility(View.GONE);
+      segmentImageButton.setVisibility(View.GONE);
       Toast.makeText(this, "预测过程出错", Toast.LENGTH_SHORT).show();
     }
   }
@@ -293,7 +302,7 @@ public class MainActivity extends Activity {
         TensorImageUtils.TORCHVISION_NORM_STD_RGB
     );
   }
-  
+
   private void normalizePredictions(float[] preds) {
     // 找到最小值和最大值
     float min = Float.MAX_VALUE;
@@ -317,7 +326,7 @@ public class MainActivity extends Activity {
     for (int y = 0; y < HEIGHT_SIZE; y++) {
       for (int x = 0; x < WIDTH_SIZE; x++) {
         int idx = y * WIDTH_SIZE + x;
-        int gray = (int)(preds[idx] * 255);
+        int gray = (int) (preds[idx] * 255);
         int color = Color.rgb(gray, gray, gray);
         mask.setPixel(x, y, color);
       }
@@ -326,70 +335,70 @@ public class MainActivity extends Activity {
     // 缩放回原图大小
     return Bitmap.createScaledBitmap(mask, originalWidth, originalHeight, true);
   }
-  
+
   private Bitmap createCroppedBitmap(Bitmap originalBitmap, float[] predictions) {
     int width = originalBitmap.getWidth();
     int height = originalBitmap.getHeight();
-    
+
     // 创建带透明通道的结果图片
     Bitmap croppedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-    
+
     // 将预测结果缩放到原图尺寸
     Bitmap scaledMask = Bitmap.createScaledBitmap(
         createMaskBitmap(predictions), width, height, true);
-    
+
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
         // 获取原图像素
         int originalPixel = originalBitmap.getPixel(x, y);
-        
+
         // 获取显著性值（0-255）
         int maskPixel = scaledMask.getPixel(x, y);
-        int saliency = Color.red(maskPixel); // 灰度图，RGB值相同
-        
-        // 根据显著性值设置透明度
-        // 显著性高的保留，显著性低的变透明
+        int saliency = Color.red(maskPixel);
+
+        // 根据显著性值设置透明度，显著性高的保留，显著性低的变透明
         int alpha = saliency; // 直接使用显著性值作为alpha通道
-        
+
         // 设置新像素（保持原色彩，调整透明度）
-        int newPixel = Color.argb(alpha, 
-            Color.red(originalPixel), 
-            Color.green(originalPixel), 
+        int newPixel = Color.argb(alpha,
+            Color.red(originalPixel),
+            Color.green(originalPixel),
             Color.blue(originalPixel));
-        
+
         croppedBitmap.setPixel(x, y, newPixel);
       }
     }
-    
+
     return croppedBitmap;
   }
-  
+
   private Bitmap createMaskBitmap(float[] predictions) {
     Bitmap mask = Bitmap.createBitmap(WIDTH_SIZE, HEIGHT_SIZE, Bitmap.Config.ARGB_8888);
-    
+
     for (int y = 0; y < HEIGHT_SIZE; y++) {
       for (int x = 0; x < WIDTH_SIZE; x++) {
         int idx = y * WIDTH_SIZE + x;
-        int gray = (int)(predictions[idx] * 255);
+        int gray = (int) (predictions[idx] * 255);
         int color = Color.rgb(gray, gray, gray);
         mask.setPixel(x, y, color);
       }
     }
-    
+
     return mask;
   }
-  
-  private String saveBitmapToTempFile(Bitmap bitmap) {
+
+  private void saveBitmapToTempFile(Bitmap bitmap) {
     try {
-      File tempFile = new File(getCacheDir(), "cropped_image_" + System.currentTimeMillis() + ".png");
+      SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
+      String timestamp = sdf.format(new Date());
+      File tempFile = new File(getCacheDir(), timestamp + ".png");
       FileOutputStream out = new FileOutputStream(tempFile);
       bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
       out.flush();
       out.close();
-      return tempFile.getAbsolutePath();
+      TEMP_FILE_PATH = tempFile.getAbsolutePath();
     } catch (IOException e) {
       e.printStackTrace();
-      return null;
     }
   }
 

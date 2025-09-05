@@ -25,7 +25,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="com.example.ml_demo.Display3DActivity"
+        <activity android:name="com.example.ml_demo.DisplaySegmentActivity"
             android:exported="false"
             android:label="显著性裁剪结果" />
 
