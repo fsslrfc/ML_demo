@@ -52,7 +52,7 @@ public class MainActivity extends Activity {
 
   private Module mModule;
   private Button selectImageButton;
-  private Button show3dImageButton;
+  private Button segmentImageButton;
   private ImageView originalImageView;
   private ImageView resultImageView;
   private TextView statusText;
@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
   private void init() {
     statusText = findViewById(R.id.statusText);
     selectImageButton = findViewById(R.id.selectImageButton);
-    show3dImageButton = findViewById(R.id.show3dImageButton);
+    segmentImageButton = findViewById(R.id.segmentImageButton);
     originalImageView = findViewById(R.id.originalImageView);
     resultImageView = findViewById(R.id.resultImageView);
     resultLayout = findViewById(R.id.resultLayout);
@@ -95,12 +95,12 @@ public class MainActivity extends Activity {
       }
     });
 
-    show3dImageButton.setOnClickListener(new View.OnClickListener() {
+    segmentImageButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
         if (currentOriginalBitmap != null) {
           Bitmap displayBitmap = currentOriginalBitmap;
-          Intent intent = new Intent(MainActivity.this, Display3DActivity.class);
+          Intent intent = new Intent(MainActivity.this, DisplaySegmentActivity.class);
           String imagePath = TEMP_FILE_PATH;
           intent.putExtra("cropped_image_path", imagePath);
           startActivity(intent);
@@ -143,7 +143,7 @@ public class MainActivity extends Activity {
 
   private void clearResults() {
     resultLayout.setVisibility(View.GONE);
-    show3dImageButton.setVisibility(View.GONE);
+    segmentImageButton.setVisibility(View.GONE);
     currentOriginalBitmap = null;
     currentPredictions = null;
     originalImageView.setImageBitmap(null);
@@ -274,7 +274,7 @@ public class MainActivity extends Activity {
       Bitmap resultBitmap = createResultBitmap(preds, bitmap.getWidth(), bitmap.getHeight());
       resultImageView.setImageBitmap(resultBitmap);
       resultLayout.setVisibility(View.VISIBLE);
-      show3dImageButton.setVisibility(View.VISIBLE);
+      segmentImageButton.setVisibility(View.VISIBLE);
 
       // 保存处理后的图片到缓存，用于历史记录
       Bitmap croppedBitmap = createCroppedBitmap(bitmap, preds);
@@ -286,7 +286,7 @@ public class MainActivity extends Activity {
     } catch (Exception e) {
       statusText.setText("预测失败: " + e.getMessage());
       resultLayout.setVisibility(View.GONE);
-      show3dImageButton.setVisibility(View.GONE);
+      segmentImageButton.setVisibility(View.GONE);
       Toast.makeText(this, "预测过程出错", Toast.LENGTH_SHORT).show();
     }
   }

@@ -20,7 +20,7 @@ import java.util.List;
 
 import androidx.annotation.Nullable;
 
-public class Display3DActivity extends Activity {
+public class DisplaySegmentActivity extends Activity {
 
   private ImageView croppedImageView;
   private Button backButton;
