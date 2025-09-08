@@ -62,6 +62,7 @@ public class MainActivity extends Activity {
   private Handler mMainHandler;
   private Button selectImageButton;
   private Button segmentImageButton;
+  private Button display3DButton;
   private ImageView originalImageView;
   private ImageView resultImageView;
   private TextView statusText;
@@ -74,6 +75,7 @@ public class MainActivity extends Activity {
 
   private String currentModelName = U2NETP_MODULE;
   private Bitmap currentOriginalBitmap;
+  private Bitmap currentResultBitmap;
   private float[] currentPredictions;
   private List<String> modelOptions;
   private ArrayAdapter<String> modelAdapter;
@@ -91,6 +93,7 @@ public class MainActivity extends Activity {
     statusText = findViewById(R.id.statusText);
     selectImageButton = findViewById(R.id.selectImageButton);
     segmentImageButton = findViewById(R.id.segmentImageButton);
+    display3DButton = findViewById(R.id.display3DButton);
     originalImageView = findViewById(R.id.originalImageView);
     resultImageView = findViewById(R.id.resultImageView);
     resultLayout = findViewById(R.id.resultLayout);
@@ -115,8 +118,20 @@ public class MainActivity extends Activity {
       public void onClick(View v) {
         if (currentOriginalBitmap != null) {
           Intent intent = new Intent(MainActivity.this, DisplaySegmentActivity.class);
-          String imagePath = TEMP_FILE_PATH;
-          intent.putExtra("cropped_image_path", imagePath);
+          intent.putExtra("cropped_image_path", TEMP_FILE_PATH);
+          startActivity(intent);
+        } else {
+          Toast.makeText(MainActivity.this, "请先选择图片", Toast.LENGTH_SHORT).show();
+        }
+      }
+    });
+
+    display3DButton.setOnClickListener(new View.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        if (currentResultBitmap != null && currentOriginalBitmap != null) {
+          ImageDataManager.getInstance().setData(currentOriginalBitmap, TEMP_FILE_PATH);
+          Intent intent = new Intent(MainActivity.this, Display3DActivity.class);
           startActivity(intent);
         } else {
           Toast.makeText(MainActivity.this, "请先选择图片", Toast.LENGTH_SHORT).show();
@@ -142,6 +157,7 @@ public class MainActivity extends Activity {
             resultImageView.setImageBitmap((Bitmap) msg.obj);
             resultLayout.setVisibility(View.VISIBLE);
             segmentImageButton.setVisibility(View.VISIBLE);
+            display3DButton.setVisibility(View.VISIBLE);
             break;
           case SAVE_IMAGE_SUCCESS:
             hideLoading();
@@ -152,6 +168,7 @@ public class MainActivity extends Activity {
             statusText.setText("运行失败: " + msg.obj.toString());
             resultLayout.setVisibility(View.GONE);
             segmentImageButton.setVisibility(View.GONE);
+            display3DButton.setVisibility(View.GONE);
             break;
           default:
             break;
@@ -192,6 +209,7 @@ public class MainActivity extends Activity {
   private void clearResults() {
     resultLayout.setVisibility(View.GONE);
     segmentImageButton.setVisibility(View.GONE);
+    display3DButton.setVisibility(View.GONE);
     currentOriginalBitmap = null;
     currentPredictions = null;
     originalImageView.setImageBitmap(null);
@@ -234,9 +252,9 @@ public class MainActivity extends Activity {
                   rotatedBitmap));
               String info = processImage(rotatedBitmap);
               mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, info));
-              Bitmap resultBitmap = createResultBitmap(currentPredictions,
+              currentResultBitmap = createResultBitmap(currentPredictions,
                   currentOriginalBitmap.getWidth(), currentOriginalBitmap.getHeight());
-              mMainHandler.sendMessage(Message.obtain(mMainHandler, SET_IMAGE_SUCCESS, resultBitmap));
+              mMainHandler.sendMessage(Message.obtain(mMainHandler, SET_IMAGE_SUCCESS, currentResultBitmap));
               Bitmap croppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
               saveBitmapToTempFile(croppedBitmap);
               mMainHandler.sendMessage(Message.obtain(mMainHandler, SAVE_IMAGE_SUCCESS));
