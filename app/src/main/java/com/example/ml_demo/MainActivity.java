@@ -10,7 +10,10 @@ import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -38,19 +41,25 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 public class MainActivity extends Activity {
   private static final int PICK_IMAGE_REQUEST = 1;
 
   // 模型文件名
-  private static final String U2NET_MODEL = "u2net_mobile.ptl";
-  private static final String U2NETP_MODEL = "u2netp_mobile.ptl";
-
+  private static final String U2NET_MODULE = "u2net_mobile.ptl";
+  private static final String U2NETP_MODULE = "u2netp_mobile.ptl";
+  private static final int RUN_FAIL = 0;
+  private static final int LOAD_IMAGE_SUCCESS = 1;
+  private static final int MODULE_FORWARD_SUCCESS = 2;
+  private static final int SET_IMAGE_SUCCESS = 3;
+  private static final int SAVE_IMAGE_SUCCESS = 4;
   public final int WIDTH_SIZE = 320;
   public final int HEIGHT_SIZE = 320;
 
   private Module mModule;
+  private Handler mMainHandler;
   private Button selectImageButton;
   private Button segmentImageButton;
   private ImageView originalImageView;
@@ -58,8 +67,12 @@ public class MainActivity extends Activity {
   private TextView statusText;
   private LinearLayout resultLayout;
   private Spinner modelSpinner;
+  private TextView loadingText;
+  private LinearLayout loadingLayout;
 
-  private String currentModelName = U2NETP_MODEL;
+  private boolean isProcessing = false;
+
+  private String currentModelName = U2NETP_MODULE;
   private Bitmap currentOriginalBitmap;
   private float[] currentPredictions;
   private List<String> modelOptions;
@@ -82,6 +95,8 @@ public class MainActivity extends Activity {
     resultImageView = findViewById(R.id.resultImageView);
     resultLayout = findViewById(R.id.resultLayout);
     modelSpinner = findViewById(R.id.modelSpinner);
+    loadingText = findViewById(R.id.loadingText);
+    loadingLayout = findViewById(R.id.loadingLayout);
 
     setupModelSpinner();
 
@@ -99,7 +114,6 @@ public class MainActivity extends Activity {
       @Override
       public void onClick(View v) {
         if (currentOriginalBitmap != null) {
-          Bitmap displayBitmap = currentOriginalBitmap;
           Intent intent = new Intent(MainActivity.this, DisplaySegmentActivity.class);
           String imagePath = TEMP_FILE_PATH;
           intent.putExtra("cropped_image_path", imagePath);
@@ -109,6 +123,41 @@ public class MainActivity extends Activity {
         }
       }
     });
+
+    mMainHandler = new Handler(getMainLooper()) {
+      @Override
+      public void handleMessage(@NonNull Message msg) {
+        super.handleMessage(msg);
+        switch (msg.what) {
+          case LOAD_IMAGE_SUCCESS:
+            showLoading("正在模型推理...");
+            originalImageView.setImageBitmap((Bitmap) msg.obj);
+            break;
+          case MODULE_FORWARD_SUCCESS:
+            showLoading("正在转换图片...");
+            statusText.setText("显著性检测完成" + msg.obj);
+            break;
+          case SET_IMAGE_SUCCESS:
+            showLoading("正在保存结果...");
+            resultImageView.setImageBitmap((Bitmap) msg.obj);
+            resultLayout.setVisibility(View.VISIBLE);
+            segmentImageButton.setVisibility(View.VISIBLE);
+            break;
+          case SAVE_IMAGE_SUCCESS:
+            hideLoading();
+            break;
+          case RUN_FAIL:
+            hideLoading();
+            Toast.makeText(MainActivity.this, "运行失败: " + msg.obj.toString(), Toast.LENGTH_LONG).show();
+            statusText.setText("运行失败: " + msg.obj.toString());
+            resultLayout.setVisibility(View.GONE);
+            segmentImageButton.setVisibility(View.GONE);
+            break;
+          default:
+            break;
+        }
+      }
+    };
   }
 
   private void setupModelSpinner() {
@@ -125,8 +174,7 @@ public class MainActivity extends Activity {
     modelSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
       @Override
       public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-        String selectedModel = position == 0 ? U2NETP_MODEL : U2NET_MODEL;
-
+        String selectedModel = position == 0 ? U2NETP_MODULE : U2NET_MODULE;
         if (!selectedModel.equals(currentModelName)) {
           currentModelName = selectedModel;
           loadModel();
@@ -152,7 +200,7 @@ public class MainActivity extends Activity {
 
   private void loadModel() {
     try {
-      String modelDisplayName = currentModelName.equals(U2NETP_MODEL) ? "U2NET-P" : "U2NET";
+      String modelDisplayName = currentModelName.equals(U2NETP_MODULE) ? "U2NET-P" : "U2NET";
       statusText.setText("正在加载" + modelDisplayName + "模型...");
       Toast.makeText(this, "正在加载" + modelDisplayName + "模型...", Toast.LENGTH_SHORT).show();
 
@@ -172,62 +220,74 @@ public class MainActivity extends Activity {
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
 
-    if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
+    if (!isProcessing && requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
+      isProcessing = true;
+      showLoading("正在加载图片...");
       Uri imageUri = data.getData();
-      try {
-        // 加载选中的图片
-        InputStream inputStream = getContentResolver().openInputStream(imageUri);
-        Bitmap selectedBitmap = BitmapFactory.decodeStream(inputStream);
-
-        if (selectedBitmap != null) {
-          // 根据EXIF信息旋转图片
-          Bitmap rotatedBitmap = rotateImageBasedOnExif(selectedBitmap, imageUri);
-          // 显示原图
-          originalImageView.setImageBitmap(rotatedBitmap);
-          // 开始预测
-          processImage(rotatedBitmap);
-        } else {
-          Toast.makeText(this, "无法加载图片", Toast.LENGTH_SHORT).show();
-        }
-      } catch (Exception e) {
-        Toast.makeText(this, "图片加载失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+      if (imageUri != null) {
+        new Thread(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              Bitmap rotatedBitmap = rotateImageBasedOnExif(imageUri);
+              mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_IMAGE_SUCCESS,
+                  rotatedBitmap));
+              String info = processImage(rotatedBitmap);
+              mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, info));
+              Bitmap resultBitmap = createResultBitmap(currentPredictions,
+                  currentOriginalBitmap.getWidth(), currentOriginalBitmap.getHeight());
+              mMainHandler.sendMessage(Message.obtain(mMainHandler, SET_IMAGE_SUCCESS, resultBitmap));
+              Bitmap croppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
+              saveBitmapToTempFile(croppedBitmap);
+              mMainHandler.sendMessage(Message.obtain(mMainHandler, SAVE_IMAGE_SUCCESS));
+            } catch (Exception e) {
+              Log.i("图片加载测试", "图片加载失败！");
+              mMainHandler.sendMessage(Message.obtain(mMainHandler, RUN_FAIL, e));
+            } finally {
+              isProcessing = false;
+            }
+          }
+        }).start();
+      } else {
+        Toast.makeText(this, "图片获取失败，请重新选择", Toast.LENGTH_SHORT).show();
       }
     }
   }
 
-  private Bitmap rotateImageBasedOnExif(Bitmap bitmap, Uri imageUri) {
+  private Bitmap rotateImageBasedOnExif(Uri imageUri) {
     try {
-      // 从URI获取输入流来读取EXIF信息
       InputStream inputStream = getContentResolver().openInputStream(imageUri);
-      if (inputStream != null) {
-        ExifInterface exifInterface = new ExifInterface(inputStream);
-        int orientation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION,
-            ExifInterface.ORIENTATION_UNDEFINED);
-        inputStream.close();
-
-        switch (orientation) {
-          case ExifInterface.ORIENTATION_ROTATE_90:
-            return rotateBitmap(bitmap, 90);
-          case ExifInterface.ORIENTATION_ROTATE_180:
-            return rotateBitmap(bitmap, 180);
-          case ExifInterface.ORIENTATION_ROTATE_270:
-            return rotateBitmap(bitmap, 270);
-          case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
-            return flipBitmap(bitmap, true, false);
-          case ExifInterface.ORIENTATION_FLIP_VERTICAL:
-            return flipBitmap(bitmap, false, true);
-          case ExifInterface.ORIENTATION_TRANSPOSE:
-            return flipBitmap(rotateBitmap(bitmap, 90), true, false);
-          case ExifInterface.ORIENTATION_TRANSVERSE:
-            return flipBitmap(rotateBitmap(bitmap, 270), true, false);
-          default:
-            return bitmap;
+      Bitmap selectedBitmap = BitmapFactory.decodeStream(inputStream);
+      inputStream.close();
+      try {
+        inputStream = getContentResolver().openInputStream(imageUri);
+        if (inputStream != null) {
+          ExifInterface exifInterface = new ExifInterface(inputStream);
+          int orientation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION,
+              ExifInterface.ORIENTATION_UNDEFINED);
+          inputStream.close();
+          return switch (orientation) {
+            case ExifInterface.ORIENTATION_ROTATE_90 -> rotateBitmap(selectedBitmap, 90);
+            case ExifInterface.ORIENTATION_ROTATE_180 -> rotateBitmap(selectedBitmap, 180);
+            case ExifInterface.ORIENTATION_ROTATE_270 -> rotateBitmap(selectedBitmap, 270);
+            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL ->
+                flipBitmap(selectedBitmap, true, false);
+            case ExifInterface.ORIENTATION_FLIP_VERTICAL -> flipBitmap(selectedBitmap, false, true);
+            case ExifInterface.ORIENTATION_TRANSPOSE ->
+                flipBitmap(rotateBitmap(selectedBitmap, 90), true, false);
+            case ExifInterface.ORIENTATION_TRANSVERSE ->
+                flipBitmap(rotateBitmap(selectedBitmap, 270), true, false);
+            default -> selectedBitmap;
+          };
         }
+      } catch (Exception e) {
+        return selectedBitmap;
       }
     } catch (IOException e) {
       e.printStackTrace();
+      return null;
     }
-    return bitmap;
+    return null;
   }
 
   private Bitmap rotateBitmap(Bitmap bitmap, float degrees) {
@@ -247,9 +307,8 @@ public class MainActivity extends Activity {
    *
    * @param bitmap
    */
-  private void processImage(Bitmap bitmap) {
+  private String processImage(Bitmap bitmap) {
     try {
-      statusText.setText("正在进行显著性检测...");
       long startTime = System.currentTimeMillis();
 
       // 预处理
@@ -270,24 +329,10 @@ public class MainActivity extends Activity {
       currentOriginalBitmap = bitmap;
       currentPredictions = preds.clone();
 
-      // 可视化
-      Bitmap resultBitmap = createResultBitmap(preds, bitmap.getWidth(), bitmap.getHeight());
-      resultImageView.setImageBitmap(resultBitmap);
-      resultLayout.setVisibility(View.VISIBLE);
-      segmentImageButton.setVisibility(View.VISIBLE);
-
-      // 保存处理后的图片到缓存，用于历史记录
-      Bitmap croppedBitmap = createCroppedBitmap(bitmap, preds);
-      saveBitmapToTempFile(croppedBitmap);
-
-      String timeInfo = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime,
+      return String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime,
           inferenceTime, postprocessTime);
-      statusText.setText("显著性检测完成" + timeInfo);
     } catch (Exception e) {
-      statusText.setText("预测失败: " + e.getMessage());
-      resultLayout.setVisibility(View.GONE);
-      segmentImageButton.setVisibility(View.GONE);
-      Toast.makeText(this, "预测过程出错", Toast.LENGTH_SHORT).show();
+      throw new RuntimeException(e);
     }
   }
 
@@ -420,6 +465,27 @@ public class MainActivity extends Activity {
     } catch (IOException e) {
       e.printStackTrace();
       return null;
+    }
+  }
+
+  /**
+   * 显示加载指示器
+   */
+  private void showLoading(String message) {
+    if (loadingLayout != null) {
+      loadingLayout.setVisibility(View.VISIBLE);
+    }
+    if (loadingText != null) {
+      loadingText.setText(message);
+    }
+  }
+
+  /**
+   * 隐藏加载指示器
+   */
+  private void hideLoading() {
+    if (loadingLayout != null) {
+      loadingLayout.setVisibility(View.GONE);
     }
   }
 

@@ -23,7 +23,7 @@ import androidx.annotation.Nullable;
 public class DisplaySegmentActivity extends Activity {
 
   private ImageView croppedImageView;
-  private Button backButton;
+  private Button clearButton;
   private Spinner historySpinner;
   private List<String> historyImagePaths;
   private List<String> historyImageOptions;
@@ -32,7 +32,7 @@ public class DisplaySegmentActivity extends Activity {
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_display_3d);
+    setContentView(R.layout.activity_display_segment);
 
     init();
     loadCroppedImage();
@@ -40,15 +40,30 @@ public class DisplaySegmentActivity extends Activity {
 
   private void init() {
     croppedImageView = findViewById(R.id.croppedImageView);
-    backButton = findViewById(R.id.backButton);
+    clearButton = findViewById(R.id.clearButton);
     historySpinner = findViewById(R.id.historySpinner);
 
     setupHistorySpinner();
 
-    backButton.setOnClickListener(new View.OnClickListener() {
+    clearButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
+        try {
+          File cacheDir = getCacheDir();
+          if (cacheDir.exists()) {
+            File[] files = cacheDir.listFiles();
+            if (files != null) {
+              for (File file : files) {
+                file.delete();
+              }
+            }
+          }
+        } catch (Exception e) {
+          Log.e("清空缓存日志", "清空缓存失败: " + e.getMessage());
+          throw new RuntimeException(e);
+        }
         finish();
+        Toast.makeText(DisplaySegmentActivity.this, "历史图片已清空！", Toast.LENGTH_LONG).show();
       }
     });
   }
