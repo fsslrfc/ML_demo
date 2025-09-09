@@ -408,24 +408,45 @@ public class MainActivity extends Activity {
     int width = originalBitmap.getWidth();
     int height = originalBitmap.getHeight();
 
-    // 创建带透明通道的结果图片
+    // 创建带透明通道的结果图片，使用高质量配置
     Bitmap croppedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
 
-    // 将预测结果缩放到原图尺寸
-    Bitmap scaledMask = Bitmap.createScaledBitmap(
-        createMaskBitmap(predictions), width, height, true);
+    // 直接使用预测数据，避免额外的Bitmap创建和缩放
+    // 计算缩放比例
+    float scaleX = (float) width / WIDTH_SIZE;
+    float scaleY = (float) height / HEIGHT_SIZE;
 
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
         // 获取原图像素
         int originalPixel = originalBitmap.getPixel(x, y);
 
-        // 获取显著性值（0-255）
-        int maskPixel = scaledMask.getPixel(x, y);
-        int saliency = Color.red(maskPixel);
-
-        // 根据显著性值设置透明度，显著性高的保留，显著性低的变透明
-        int alpha = saliency; // 直接使用显著性值作为alpha通道
+        // 计算在预测数组中的对应位置（使用双线性插值获得更好的质量）
+        float predX = x / scaleX;
+        float predY = y / scaleY;
+        
+        // 边界检查
+        int x1 = Math.max(0, Math.min(WIDTH_SIZE - 1, (int) predX));
+        int y1 = Math.max(0, Math.min(HEIGHT_SIZE - 1, (int) predY));
+        int x2 = Math.max(0, Math.min(WIDTH_SIZE - 1, x1 + 1));
+        int y2 = Math.max(0, Math.min(HEIGHT_SIZE - 1, y1 + 1));
+        
+        // 双线性插值获取更精确的显著性值
+        float fx = predX - x1;
+        float fy = predY - y1;
+        
+        float pred1 = predictions[y1 * WIDTH_SIZE + x1];
+        float pred2 = predictions[y1 * WIDTH_SIZE + x2];
+        float pred3 = predictions[y2 * WIDTH_SIZE + x1];
+        float pred4 = predictions[y2 * WIDTH_SIZE + x2];
+        
+        float interpolatedPred = pred1 * (1 - fx) * (1 - fy) + 
+                                pred2 * fx * (1 - fy) + 
+                                pred3 * (1 - fx) * fy + 
+                                pred4 * fx * fy;
+        
+        // 将显著性值转换为alpha通道
+        int alpha = Math.max(0, Math.min(255, (int) (interpolatedPred * 255)));
 
         // 设置新像素（保持原色彩，调整透明度）
         int newPixel = Color.argb(alpha,
@@ -461,6 +482,7 @@ public class MainActivity extends Activity {
       String timestamp = sdf.format(new Date());
       File tempFile = new File(getCacheDir(), timestamp + ".png");
       FileOutputStream out = new FileOutputStream(tempFile);
+      // 使用PNG格式和最高质量保存，确保透明度和细节不丢失
       bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
       out.flush();
       out.close();

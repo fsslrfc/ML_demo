@@ -137,11 +137,11 @@ public class Display3DActivity extends Activity implements SensorEventListener {
   }
 
   /**
-   * 创建掩码图片
+   * 创建掩码图片 - 保持原始质量
    */
   private Bitmap createMaskBitmap(Bitmap resultBitmap) {
-    // 直接返回缩放到320x320的结果图片
-    return Bitmap.createScaledBitmap(resultBitmap, WIDTH_SIZE, HEIGHT_SIZE, true);
+    // 直接返回原始结果图片，不进行额外缩放
+    return resultBitmap;
   }
   
   @Override
@@ -187,12 +187,10 @@ public class Display3DActivity extends Activity implements SensorEventListener {
       overlayPaint = new Paint();
       overlayPaint.setAlpha(255);
       
-      // 预处理结果图片
+      // 保存原始结果图片，避免预处理时的质量损失
       if (originalBitmap != null && resultBitmap != null) {
-        int scaledWidth = (int) (originalBitmap.getWidth() * 1.2f);
-        int scaledHeight = (int) (originalBitmap.getHeight() * 1.2f);
-        Bitmap maskBitmap = createMaskBitmap(resultBitmap);
-        scaledResultBitmap = Bitmap.createScaledBitmap(maskBitmap, scaledWidth, scaledHeight, true);
+        // 直接使用原始结果图片，在绘制时再进行高质量缩放
+        scaledResultBitmap = resultBitmap;
       }
     }
     
@@ -226,9 +224,13 @@ public class Display3DActivity extends Activity implements SensorEventListener {
       int originalX = (viewWidth - scaledOriginalWidth) / 2;
       int originalY = (viewHeight - scaledOriginalHeight) / 2;
       
-      // 绘制底层原图
-      Bitmap scaledOriginal = Bitmap.createScaledBitmap(originalBitmap, scaledOriginalWidth, scaledOriginalHeight, true);
-      canvas.drawBitmap(scaledOriginal, originalX, originalY, null);
+      // 使用Paint进行绘制
+      Paint highQualityPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+      
+      // 绘制底层原图 - 直接在Canvas上缩放，避免创建新Bitmap
+      android.graphics.Rect originalSrcRect = new android.graphics.Rect(0, 0, originalBitmap.getWidth(), originalBitmap.getHeight());
+      android.graphics.Rect originalDstRect = new android.graphics.Rect(originalX, originalY, originalX + scaledOriginalWidth, originalY + scaledOriginalHeight);
+      canvas.drawBitmap(originalBitmap, originalSrcRect, originalDstRect, highQualityPaint);
       
       // 计算结果图片的绘制位置（居中 + 传感器偏移）
       int resultWidth = (int) (scaledOriginalWidth * 1.2f);
@@ -241,8 +243,13 @@ public class Display3DActivity extends Activity implements SensorEventListener {
       int resultY = baseResultY + (int) currentOffsetY;
       
       // 绘制上层结果图片
-      Bitmap finalResultBitmap = Bitmap.createScaledBitmap(scaledResultBitmap, resultWidth, resultHeight, true);
-      canvas.drawBitmap(finalResultBitmap, resultX, resultY, overlayPaint);
+      android.graphics.Rect resultSrcRect = new android.graphics.Rect(0, 0, scaledResultBitmap.getWidth(), scaledResultBitmap.getHeight());
+      android.graphics.Rect resultDstRect = new android.graphics.Rect(resultX, resultY, resultX + resultWidth, resultY + resultHeight);
+      
+      // 使用高质量Paint和透明度
+      Paint resultPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+      resultPaint.setAlpha(255);
+      canvas.drawBitmap(scaledResultBitmap, resultSrcRect, resultDstRect, resultPaint);
     }
     
     @Override
