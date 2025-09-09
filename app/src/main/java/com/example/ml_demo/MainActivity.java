@@ -3,12 +3,14 @@ package com.example.ml_demo;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -23,6 +25,7 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.Manifest;
 
 import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
@@ -43,9 +46,12 @@ import java.util.Locale;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 public class MainActivity extends Activity {
   private static final int PICK_IMAGE_REQUEST = 1;
+  private static final int PERMISSION_REQUEST_CODE = 100;
 
   // 模型文件名
   private static final String U2NET_MODULE = "u2net_mobile.ptl";
@@ -106,10 +112,9 @@ public class MainActivity extends Activity {
     selectImageButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        Intent intent = new Intent(Intent.ACTION_PICK,
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        intent.setType("image/*");
-        startActivityForResult(intent, PICK_IMAGE_REQUEST);
+        if (checkAndRequestPermissions()) {
+          openImagePicker();
+        }
       }
     });
 
@@ -484,6 +489,78 @@ public class MainActivity extends Activity {
       e.printStackTrace();
       return null;
     }
+  }
+
+  /**
+   * 检查和请求权限
+   */
+  private boolean checkAndRequestPermissions() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      // Android 13+ 使用 READ_MEDIA_IMAGES
+      if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) 
+          != PackageManager.PERMISSION_GRANTED) {
+        ActivityCompat.requestPermissions(this, 
+            new String[]{Manifest.permission.READ_MEDIA_IMAGES}, 
+            PERMISSION_REQUEST_CODE);
+        return false;
+      }
+    } else {
+      // Android 13以下使用 READ_EXTERNAL_STORAGE
+      if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) 
+          != PackageManager.PERMISSION_GRANTED) {
+        ActivityCompat.requestPermissions(this, 
+            new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 
+            PERMISSION_REQUEST_CODE);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * 打开图片选择器
+   */
+  private void openImagePicker() {
+    Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+    intent.setType("image/*");
+    startActivityForResult(intent, PICK_IMAGE_REQUEST);
+  }
+
+  @Override
+  public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, 
+      @NonNull int[] grantResults) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    
+    if (requestCode == PERMISSION_REQUEST_CODE) {
+      if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        // 权限被授予，打开图片选择器
+        openImagePicker();
+      } else {
+        // 权限被拒绝
+        Toast.makeText(this, "需要存储权限才能选择图片", Toast.LENGTH_LONG).show();
+        
+        // 检查是否应该显示权限说明
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+          if (ActivityCompat.shouldShowRequestPermissionRationale(this, 
+              Manifest.permission.READ_MEDIA_IMAGES)) {
+            showPermissionExplanation();
+          }
+        } else {
+          if (ActivityCompat.shouldShowRequestPermissionRationale(this, 
+              Manifest.permission.READ_EXTERNAL_STORAGE)) {
+            showPermissionExplanation();
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 显示权限说明
+   */
+  private void showPermissionExplanation() {
+    Toast.makeText(this, "应用需要访问图片权限来选择和处理图片，请在设置中手动开启权限", 
+        Toast.LENGTH_LONG).show();
   }
 
   /**
