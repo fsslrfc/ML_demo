@@ -20,6 +20,7 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
@@ -57,10 +58,11 @@ public class MainActivity extends Activity {
   private static final String U2NET_MODULE = "u2net_mobile.ptl";
   private static final String U2NETP_MODULE = "u2netp_mobile.ptl";
   private static final int RUN_FAIL = 0;
-  private static final int LOAD_IMAGE_SUCCESS = 1;
-  private static final int MODULE_FORWARD_SUCCESS = 2;
-  private static final int SET_IMAGE_SUCCESS = 3;
-  private static final int SAVE_IMAGE_SUCCESS = 4;
+  private static final int LOAD_MODULE_SUCCESS = 1;
+  private static final int LOAD_IMAGE_SUCCESS = 2;
+  private static final int MODULE_FORWARD_SUCCESS = 3;
+  private static final int SET_IMAGE_SUCCESS = 4;
+  private static final int SAVE_IMAGE_SUCCESS = 5;
   public final int WIDTH_SIZE = 320;
   public final int HEIGHT_SIZE = 320;
 
@@ -75,7 +77,7 @@ public class MainActivity extends Activity {
   private LinearLayout resultLayout;
   private Spinner modelSpinner;
   private TextView loadingText;
-  private LinearLayout loadingLayout;
+  private FrameLayout loadingLayout;
 
   private boolean isProcessing = false;
 
@@ -92,7 +94,7 @@ public class MainActivity extends Activity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
     init();
-    loadModel();
+    loadModule();
   }
 
   private void init() {
@@ -136,7 +138,7 @@ public class MainActivity extends Activity {
       public void onClick(View v) {
         if (currentResultBitmap != null && currentOriginalBitmap != null) {
           ImageDataManager.getInstance().setData(currentOriginalBitmap, TEMP_FILE_PATH);
-          Intent intent = new Intent(MainActivity.this, Display3DActivity.class);
+          Intent intent = new Intent(MainActivity.this, Display3dActivity.class);
           startActivity(intent);
         } else {
           Toast.makeText(MainActivity.this, "请先选择图片", Toast.LENGTH_SHORT).show();
@@ -149,6 +151,9 @@ public class MainActivity extends Activity {
       public void handleMessage(@NonNull Message msg) {
         super.handleMessage(msg);
         switch (msg.what) {
+          case LOAD_MODULE_SUCCESS:
+            hideLoading();
+            break;
           case LOAD_IMAGE_SUCCESS:
             showLoading("正在模型推理...");
             originalImageView.setImageBitmap((Bitmap) msg.obj);
@@ -192,14 +197,16 @@ public class MainActivity extends Activity {
     modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 
     modelSpinner.setAdapter(modelAdapter);
-    modelSpinner.setSelection(0);
+    modelSpinner.setSelection(1);
     modelSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
       @Override
       public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         String selectedModel = position == 0 ? U2NETP_MODULE : U2NET_MODULE;
         if (!selectedModel.equals(currentModelName)) {
           currentModelName = selectedModel;
-          loadModel();
+          showLoading("正在加载模型...");
+          loadModule();
+          mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_MODULE_SUCCESS));
           clearResults();
         }
       }
@@ -221,7 +228,7 @@ public class MainActivity extends Activity {
     resultImageView.setImageBitmap(null);
   }
 
-  private void loadModel() {
+  private void loadModule() {
     try {
       String modelDisplayName = currentModelName.equals(U2NETP_MODULE) ? "U2NET-P" : "U2NET";
       statusText.setText("正在加载" + modelDisplayName + "模型...");
@@ -345,6 +352,8 @@ public class MainActivity extends Activity {
       // 后处理
       float[] preds = output.getDataAsFloatArray();
       normalizePredictions(preds);
+      applyEdgeSmoothing(preds);
+      
       long postprocessTime =
           System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
 
@@ -385,6 +394,120 @@ public class MainActivity extends Activity {
     for (int i = 0; i < preds.length; i++) {
       preds[i] = (preds[i] - min) / (max - min);
     }
+  }
+
+  /**
+   * 边缘平滑处理 - 只对边缘区域进行平滑，保持主体区域的清晰度
+   */
+  private void applyEdgeSmoothing(float[] preds) {
+    // 创建边缘检测结果数组
+    float[] edges = detectEdges(preds);
+    
+    // 创建平滑后的预测结果
+    float[] smoothedPreds = applySmoothingFilter(preds);
+    
+    // 只在边缘区域应用平滑效果
+    for (int i = 0; i < preds.length; i++) {
+      // 根据边缘强度混合原始预测和平滑预测
+      float edgeStrength = edges[i];
+      // 边缘强度越高，使用越多的平滑结果
+      preds[i] = preds[i] * (1 - edgeStrength) + smoothedPreds[i] * edgeStrength;
+    }
+  }
+
+  /**
+   * 边缘检测 - 使用Sobel算子检测边缘
+   */
+  private float[] detectEdges(float[] preds) {
+    float[] edges = new float[preds.length];
+    
+    // Sobel算子
+    int[] sobelX = {
+        -1, 0, 1,
+        -2, 0, 2,
+        -1, 0, 1
+    };
+    int[] sobelY = {
+        -1, -2, -1,
+        0, 0, 0,
+        1, 2, 1
+    };
+    
+    for (int y = 1; y < HEIGHT_SIZE - 1; y++) {
+      for (int x = 1; x < WIDTH_SIZE - 1; x++) {
+        int idx = y * WIDTH_SIZE + x;
+        
+        float gx = 0, gy = 0;
+        
+        for (int ky = -1; ky <= 1; ky++) {
+          for (int kx = -1; kx <= 1; kx++) {
+            int pixelIdx = (y + ky) * WIDTH_SIZE + (x + kx);
+            int kernelIdx = (ky + 1) * 3 + (kx + 1);
+            
+            gx += preds[pixelIdx] * sobelX[kernelIdx];
+            gy += preds[pixelIdx] * sobelY[kernelIdx];
+          }
+        }
+        
+        // 计算梯度幅值
+        float magnitude = (float) Math.sqrt(gx * gx + gy * gy);
+        
+        // 归一化边缘强度到[0, 1]范围，并应用阈值
+        edges[idx] = Math.min(1.0f, magnitude * 2.0f);
+        
+        // 只对较强的边缘进行平滑处理
+        if (edges[idx] < 0.3f) {
+          edges[idx] = 0;
+        } else {
+          // 平滑边缘强度过渡
+          edges[idx] = (edges[idx] - 0.3f) / 0.7f;
+        }
+      }
+    }
+    
+    return edges;
+  }
+
+  /**
+   * 应用高斯平滑滤波器
+   */
+  private float[] applySmoothingFilter(float[] preds) {
+    float[] smoothed = new float[preds.length];
+    
+    // 3x3高斯核 (sigma ≈ 0.8)
+    float[] gaussianKernel = {
+        0.0625f, 0.125f, 0.0625f,
+        0.125f,  0.25f,  0.125f,
+        0.0625f, 0.125f, 0.0625f
+    };
+    
+    for (int y = 1; y < HEIGHT_SIZE - 1; y++) {
+      for (int x = 1; x < WIDTH_SIZE - 1; x++) {
+        int idx = y * WIDTH_SIZE + x;
+        float sum = 0;
+        
+        for (int ky = -1; ky <= 1; ky++) {
+          for (int kx = -1; kx <= 1; kx++) {
+            int pixelIdx = (y + ky) * WIDTH_SIZE + (x + kx);
+            int kernelIdx = (ky + 1) * 3 + (kx + 1);
+            sum += preds[pixelIdx] * gaussianKernel[kernelIdx];
+          }
+        }
+        
+        smoothed[idx] = sum;
+      }
+    }
+    
+    // 处理边界像素（直接复制原值）
+    for (int y = 0; y < HEIGHT_SIZE; y++) {
+      for (int x = 0; x < WIDTH_SIZE; x++) {
+        if (y == 0 || y == HEIGHT_SIZE - 1 || x == 0 || x == WIDTH_SIZE - 1) {
+          smoothed[y * WIDTH_SIZE + x] = preds[y * WIDTH_SIZE + x];
+        }
+      }
+    }
+    
+    return smoothed;
   }
 
   private Bitmap createResultBitmap(float[] preds, int originalWidth, int originalHeight) {

@@ -31,7 +31,7 @@
             android:exported="false"
             android:label="显著性裁剪结果" />
 
-        <activity android:name="com.example.ml_demo.Display3DActivity"
+        <activity android:name="com.example.ml_demo.Display3dActivity"
             android:exported="false"
             android:label="3D效果" />
 
