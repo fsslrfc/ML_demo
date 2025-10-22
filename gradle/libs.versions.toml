@@ -14,6 +14,7 @@ appcompat = "1.7.1"
 material = "1.12.0"
 materialVersion = "1.9.0"
 
+opencv = "4.9.0"
 tensorflowLite = "2.13.0"
 tensorflowLiteGpu = "2.9.0"
 tensorflowLiteGpuVersion = "2.14.0"
@@ -39,6 +40,7 @@ material = { group = "com.google.android.material", name = "material", version.r
 material-v1110 = { module = "com.google.android.material:material", version.ref = "googleMaterial" }
 material-v190 = { module = "com.google.android.material:material", version.ref = "materialVersion" }
 
+opencv = { module = "org.opencv:opencv", version.ref = "opencv" }
 tensorflow-lite = { module = "org.tensorflow:tensorflow-lite", version.ref = "tensorflowLite" }
 tensorflow-lite-gpu = { module = "org.tensorflow:tensorflow-lite-gpu", version.ref = "tensorflowLite" }
 tensorflow-lite-gpu-v2140 = { module = "org.tensorflow:tensorflow-lite-gpu", version.ref = "tensorflowLiteGpuVersion" }

@@ -31,11 +31,11 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="com.example.ml_demo.mobilesam.MainActivity"
+        <activity android:name=".mobilesam.MainActivity"
             android:exported="false"
             android:label="mobilesam入口" />
 
-        <activity android:name="com.example.ml_demo.u2net.MainActivity"
+        <activity android:name=".u2net.MainActivity"
             android:exported="false"
             android:label="u2net入口" />
 
@@ -47,11 +47,11 @@
             android:exported="false"
             android:label="patchmatch入口" />
 
-        <activity android:name="com.example.ml_demo.u2net.DisplaySegmentActivity"
+        <activity android:name=".u2net.DisplaySegmentActivity"
             android:exported="false"
             android:label="显著性裁剪结果" />
 
-        <activity android:name="com.example.ml_demo.u2net.Display3dActivity"
+        <activity android:name=".u2net.Display3dActivity"
             android:exported="false"
             android:label="3D效果" />
 
