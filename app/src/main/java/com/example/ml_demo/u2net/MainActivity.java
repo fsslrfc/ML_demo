@@ -1,4 +1,4 @@
-package com.example.ml_demo;
+package com.example.ml_demo.u2net;
 
 import android.app.Activity;
 import android.content.Context;
@@ -27,6 +27,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.Manifest;
+
+import com.example.ml_demo.R;
 
 import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
@@ -57,12 +59,15 @@ public class MainActivity extends Activity {
   // 模型文件名
   private static final String U2NET_MODULE = "u2net_mobile.ptl";
   private static final String U2NETP_MODULE = "u2netp_mobile.ptl";
+  private static final String U2NET_NOTE = "U2NET (完整版 173.6MB)";
+  private static final String U2NETP_NOTE = "U2NET-P (轻量版 4.7MB)";
   private static final int RUN_FAIL = 0;
   private static final int LOAD_MODULE_SUCCESS = 1;
-  private static final int LOAD_IMAGE_SUCCESS = 2;
-  private static final int MODULE_FORWARD_SUCCESS = 3;
-  private static final int SET_IMAGE_SUCCESS = 4;
-  private static final int SAVE_IMAGE_SUCCESS = 5;
+  private static final int LOAD_MODULE_FAILED = 2;
+  private static final int LOAD_IMAGE_SUCCESS = 3;
+  private static final int MODULE_FORWARD_SUCCESS = 4;
+  private static final int SET_IMAGE_SUCCESS = 5;
+  private static final int SAVE_IMAGE_SUCCESS = 6;
   public final int WIDTH_SIZE = 320;
   public final int HEIGHT_SIZE = 320;
 
@@ -94,7 +99,6 @@ public class MainActivity extends Activity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
     init();
-    loadModule();
   }
 
   private void init() {
@@ -152,8 +156,14 @@ public class MainActivity extends Activity {
         super.handleMessage(msg);
         switch (msg.what) {
           case LOAD_MODULE_SUCCESS:
+            statusText.setText("模型加载完成，点击按钮选择图片");
+            selectImageButton.setEnabled(true);
             hideLoading();
             break;
+          case LOAD_MODULE_FAILED:
+            statusText.setText("模型加载失败！");
+            selectImageButton.setEnabled(false);
+            Toast.makeText(MainActivity.this, "模型加载失败，请检查模型文件", Toast.LENGTH_SHORT).show();
           case LOAD_IMAGE_SUCCESS:
             showLoading("正在模型推理...");
             originalImageView.setImageBitmap((Bitmap) msg.obj);
@@ -189,8 +199,8 @@ public class MainActivity extends Activity {
 
   private void setupModelSpinner() {
     modelOptions = new ArrayList<>();
-    modelOptions.add("U2NET-P (轻量版 4.7MB)");
-    modelOptions.add("U2NET (完整版 173.6MB)");
+    modelOptions.add(U2NETP_NOTE);
+    modelOptions.add(U2NET_NOTE);
 
     modelAdapter = new ArrayAdapter<>(this,
         android.R.layout.simple_spinner_item, modelOptions);
@@ -229,21 +239,21 @@ public class MainActivity extends Activity {
   }
 
   private void loadModule() {
-    try {
-      String modelDisplayName = currentModelName.equals(U2NETP_MODULE) ? "U2NET-P" : "U2NET";
-      statusText.setText("正在加载" + modelDisplayName + "模型...");
-      Toast.makeText(this, "正在加载" + modelDisplayName + "模型...", Toast.LENGTH_SHORT).show();
-
-      String modelPath = assetFilePath(this, currentModelName);
-      mModule = LiteModuleLoader.load(modelPath);
-
-      statusText.setText(modelDisplayName + "模型加载完成，点击按钮选择图片");
-      selectImageButton.setEnabled(true);
-    } catch (Exception e) {
-      statusText.setText("模型加载失败: " + e.getMessage());
-      selectImageButton.setEnabled(false);
-      Toast.makeText(this, "模型加载失败，请检查模型文件", Toast.LENGTH_SHORT).show();
-    }
+    String modelDisplayName = currentModelName.equals(U2NETP_MODULE) ? "U2NET-P" : "U2NET";
+    statusText.setText("正在加载" + modelDisplayName + "模型...");
+    Toast.makeText(this, "正在加载" + modelDisplayName + "模型...", Toast.LENGTH_SHORT).show();
+    String modelPath = assetFilePath(this, currentModelName);
+    new Thread(new Runnable() {
+      @Override
+      public void run() {
+        try {
+          mModule = LiteModuleLoader.load(modelPath);
+          mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_MODULE_SUCCESS));
+        } catch (Exception e) {
+          mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_MODULE_FAILED));
+        }
+      }
+    }).start();
   }
 
   @Override

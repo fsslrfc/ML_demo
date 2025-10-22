@@ -1,4 +1,4 @@
-package com.example.ml_demo;
+package com.example.ml_demo.u2net;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
@@ -12,6 +12,8 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.Toast;
+
+import com.example.ml_demo.R;
 
 import java.io.File;
 import java.util.ArrayList;

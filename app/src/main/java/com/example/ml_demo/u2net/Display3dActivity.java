@@ -1,4 +1,4 @@
-package com.example.ml_demo;
+package com.example.ml_demo.u2net;
 
 import android.app.Activity;
 import android.content.Context;
