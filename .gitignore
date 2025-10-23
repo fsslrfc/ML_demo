@@ -13,3 +13,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+/PatchMatch的C++版本/
+/.codebuddy/

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PatchMatch 图像修复"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:paddingBottom="16dp"/>
+
+        <!-- 原始图像 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="原始图像"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:paddingTop="8dp"/>
+
+        <ImageView
+            android:id="@+id/imageViewOriginal"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:scaleType="centerInside"
+            android:background="#EEEEEE"
+            android:contentDescription="原始图像"/>
+
+        <Button
+            android:id="@+id/btnSelectImage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="选择图像"
+            android:layout_marginTop="8dp"/>
+
+        <!-- Mask图像 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mask图像（白色区域为待修复区域）"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:paddingTop="16dp"/>
+
+        <ImageView
+            android:id="@+id/imageViewMask"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:scaleType="centerInside"
+            android:background="#EEEEEE"
+            android:contentDescription="Mask图像"/>
+
+        <Button
+            android:id="@+id/btnSelectMask"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="选择Mask"
+            android:layout_marginTop="8dp"/>
+
+        <!-- 处理按钮 -->
+        <Button
+            android:id="@+id/btnProcess"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="开始修复"
+            android:layout_marginTop="16dp"
+            android:enabled="false"
+            android:backgroundTint="@color/design_default_color_primary"/>
+
+        <!-- 进度条 -->
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:indeterminate="true"/>
+
+        <!-- 结果图像 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="修复结果"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:paddingTop="16dp"/>
+
+        <ImageView
+            android:id="@+id/imageViewResult"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:scaleType="centerInside"
+            android:background="#EEEEEE"
+            android:contentDescription="修复结果"/>
+
+        <!-- 结果信息 -->
+        <TextView
+            android:id="@+id/textViewResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="14sp"
+            android:paddingTop="8dp"
+            android:gravity="center"/>
+
+    </LinearLayout>
+</ScrollView>

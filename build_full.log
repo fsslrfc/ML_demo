@@ -1,0 +1,159 @@
+Starting a Gradle Daemon (subsequent builds will be faster)
+WARNING: The specified Android SDK Build Tools version (34.0.0) is ignored, as it is below the minimum supported version (35.0.0) for Android Gradle Plugin 8.10.0.
+Android SDK Build Tools 35.0.0 will be used.
+To suppress this warning, remove "buildToolsVersion '34.0.0'" from your build.gradle file, as each version of the Android Gradle Plugin now has a default version of the build tools.
+
+> Task :app:extractOpenCV
+Found OpenCV AAR: /Users/xvkun/.gradle/caches/modules-2/files-2.1/org.opencv/opencv/4.9.0/b2a6d7e79b40d45781b0448352afc0d160c43d3d/opencv-4.9.0.aar
+OpenCV extracted successfully to /Users/xvkun/Desktop/Projects/ML_demo/app/build/opencv
+
+> Task :app:preBuild
+> Task :app:preDebugBuild
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:dataBindingMergeDependencyArtifactsDebug UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:dataBindingGenBaseClassesDebug UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:processDebugJavaRes NO-SOURCE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:configureCMakeDebug[arm64-v8a]
+> Task :app:buildCMakeDebug[arm64-v8a]
+> Task :app:configureCMakeDebug[armeabi-v7a]
+
+> Task :app:buildCMakeDebug[armeabi-v7a]
+C/C++: ninja: Entering directory `/Users/xvkun/Desktop/Projects/ML_demo/app/.cxx/Debug/5cum6o25/armeabi-v7a'
+C/C++: /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/maskedimage.cpp.o -MF CMakeFiles/patchmatch.dir/maskedimage.cpp.o.d -o CMakeFiles/patchmatch.dir/maskedimage.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/maskedimage.cpp
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/maskedimage.cpp:1:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/maskedimage.h:3:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/defineall.h:10:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:56:
+C/C++: /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/calib3d.hpp:50:10: fatal error: 'opencv2/core/affine.hpp' file not found
+C/C++:    50 | #include "opencv2/core/affine.hpp"
+C/C++:       |          ^~~~~~~~~~~~~~~~~~~~~~~~~
+C/C++: 1 error generated.
+C/C++: /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/nearestneighborfield.cpp.o -MF CMakeFiles/patchmatch.dir/nearestneighborfield.cpp.o.d -o CMakeFiles/patchmatch.dir/nearestneighborfield.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/nearestneighborfield.cpp
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/nearestneighborfield.cpp:1:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/nearestneighborfield.h:3:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/defineall.h:10:
+C/C++: /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:56:10: fatal error: 'opencv2/calib3d.hpp' file not found
+C/C++:    56 | #include "opencv2/calib3d.hpp"
+C/C++:       |          ^~~~~~~~~~~~~~~~~~~~~
+C/C++: 1 error generated.
+C/C++: /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/qualitymesures.cpp.o -MF CMakeFiles/patchmatch.dir/qualitymesures.cpp.o.d -o CMakeFiles/patchmatch.dir/qualitymesures.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/qualitymesures.cpp
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/qualitymesures.cpp:1:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/defineall.h:10:
+C/C++: /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:56:10: fatal error: 'opencv2/calib3d.hpp' file not found
+C/C++:    56 | #include "opencv2/calib3d.hpp"
+C/C++:       |          ^~~~~~~~~~~~~~~~~~~~~
+C/C++: 1 error generated.
+C/C++: /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/inpaint.cpp.o -MF CMakeFiles/patchmatch.dir/inpaint.cpp.o.d -o CMakeFiles/patchmatch.dir/inpaint.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/inpaint.cpp
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/inpaint.cpp:1:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/inpaint.h:3:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/defineall.h:10:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:52:
+C/C++: /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/core.hpp:3394:10: fatal error: 'opencv2/core/ovx.hpp' file not found
+C/C++:  3394 | #include "opencv2/core/ovx.hpp"
+C/C++:       |          ^~~~~~~~~~~~~~~~~~~~~~
+C/C++: 1 error generated.
+C/C++: /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/patchmatch_jni.cpp.o -MF CMakeFiles/patchmatch.dir/patchmatch_jni.cpp.o.d -o CMakeFiles/patchmatch.dir/patchmatch_jni.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/patchmatch_jni.cpp
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/patchmatch_jni.cpp:4:
+C/C++: In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:52:
+C/C++: /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/core.hpp:3394:10: fatal error: 'opencv2/core/ovx.hpp' file not found
+C/C++:  3394 | #include "opencv2/core/ovx.hpp"
+C/C++:       |          ^~~~~~~~~~~~~~~~~~~~~~
+C/C++: 1 error generated.
+
+> Task :app:buildCMakeDebug[armeabi-v7a] FAILED
+> Task :app:processDebugManifestForPackage
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:buildCMakeDebug[armeabi-v7a]'.
+> com.android.ide.common.process.ProcessException: ninja: Entering directory `/Users/xvkun/Desktop/Projects/ML_demo/app/.cxx/Debug/5cum6o25/armeabi-v7a'
+  [1/6] Building CXX object CMakeFiles/patchmatch.dir/maskedimage.cpp.o
+  FAILED: CMakeFiles/patchmatch.dir/maskedimage.cpp.o 
+  /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/maskedimage.cpp.o -MF CMakeFiles/patchmatch.dir/maskedimage.cpp.o.d -o CMakeFiles/patchmatch.dir/maskedimage.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/maskedimage.cpp
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/maskedimage.cpp:1:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/maskedimage.h:3:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/defineall.h:10:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:56:
+  /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/calib3d.hpp:50:10: fatal error: 'opencv2/core/affine.hpp' file not found
+     50 | #include "opencv2/core/affine.hpp"
+        |          ^~~~~~~~~~~~~~~~~~~~~~~~~
+  1 error generated.
+  [2/6] Building CXX object CMakeFiles/patchmatch.dir/nearestneighborfield.cpp.o
+  FAILED: CMakeFiles/patchmatch.dir/nearestneighborfield.cpp.o 
+  /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/nearestneighborfield.cpp.o -MF CMakeFiles/patchmatch.dir/nearestneighborfield.cpp.o.d -o CMakeFiles/patchmatch.dir/nearestneighborfield.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/nearestneighborfield.cpp
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/nearestneighborfield.cpp:1:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/nearestneighborfield.h:3:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/defineall.h:10:
+  /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:56:10: fatal error: 'opencv2/calib3d.hpp' file not found
+     56 | #include "opencv2/calib3d.hpp"
+        |          ^~~~~~~~~~~~~~~~~~~~~
+  1 error generated.
+  [3/6] Building CXX object CMakeFiles/patchmatch.dir/qualitymesures.cpp.o
+  FAILED: CMakeFiles/patchmatch.dir/qualitymesures.cpp.o 
+  /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/qualitymesures.cpp.o -MF CMakeFiles/patchmatch.dir/qualitymesures.cpp.o.d -o CMakeFiles/patchmatch.dir/qualitymesures.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/qualitymesures.cpp
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/qualitymesures.cpp:1:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/defineall.h:10:
+  /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:56:10: fatal error: 'opencv2/calib3d.hpp' file not found
+     56 | #include "opencv2/calib3d.hpp"
+        |          ^~~~~~~~~~~~~~~~~~~~~
+  1 error generated.
+  [4/6] Building CXX object CMakeFiles/patchmatch.dir/inpaint.cpp.o
+  FAILED: CMakeFiles/patchmatch.dir/inpaint.cpp.o 
+  /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/inpaint.cpp.o -MF CMakeFiles/patchmatch.dir/inpaint.cpp.o.d -o CMakeFiles/patchmatch.dir/inpaint.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/inpaint.cpp
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/inpaint.cpp:1:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/inpaint.h:3:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include/defineall.h:10:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:52:
+  /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/core.hpp:3394:10: fatal error: 'opencv2/core/ovx.hpp' file not found
+   3394 | #include "opencv2/core/ovx.hpp"
+        |          ^~~~~~~~~~~~~~~~~~~~~~
+  1 error generated.
+  [5/6] Building CXX object CMakeFiles/patchmatch.dir/patchmatch_jni.cpp.o
+  FAILED: CMakeFiles/patchmatch.dir/patchmatch_jni.cpp.o 
+  /Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi24 --sysroot=/Users/xvkun/Library/Android/sdk/ndk/29.0.13846066/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dpatchmatch_EXPORTS -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/include -I/Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++11 -frtti -fexceptions -fno-limit-debug-info  -fPIC -std=c++11 -MD -MT CMakeFiles/patchmatch.dir/patchmatch_jni.cpp.o -MF CMakeFiles/patchmatch.dir/patchmatch_jni.cpp.o.d -o CMakeFiles/patchmatch.dir/patchmatch_jni.cpp.o -c /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/patchmatch_jni.cpp
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/patchmatch_jni.cpp:4:
+  In file included from /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/opencv.hpp:52:
+  /Users/xvkun/Desktop/Projects/ML_demo/app/src/main/cpp/../../../build/opencv/include/opencv2/core.hpp:3394:10: fatal error: 'opencv2/core/ovx.hpp' file not found
+   3394 | #include "opencv2/core/ovx.hpp"
+        |          ^~~~~~~~~~~~~~~~~~~~~~
+  1 error generated.
+  ninja: build stopped: subcommand failed.
+  
+  C++ build system [build] failed while executing:
+      /Users/xvkun/Library/Android/sdk/cmake/3.22.1/bin/ninja \
+        -C \
+        /Users/xvkun/Desktop/Projects/ML_demo/app/.cxx/Debug/5cum6o25/armeabi-v7a \
+        patchmatch
+    from /Users/xvkun/Desktop/Projects/ML_demo/app
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m
+28 actionable tasks: 6 executed, 22 up-to-date

@@ -1,0 +1,28 @@
+Starting a Gradle Daemon (subsequent builds will be faster)
+WARNING: The specified Android SDK Build Tools version (34.0.0) is ignored, as it is below the minimum supported version (35.0.0) for Android Gradle Plugin 8.10.0.
+Android SDK Build Tools 35.0.0 will be used.
+To suppress this warning, remove "buildToolsVersion '34.0.0'" from your build.gradle file, as each version of the Android Gradle Plugin now has a default version of the build tools.
+
+> Task :app:extractOpenCV
+Found OpenCV AAR: /Users/xvkun/.gradle/caches/modules-2/files-2.1/org.opencv/opencv/4.9.0/b2a6d7e79b40d45781b0448352afc0d160c43d3d/opencv-4.9.0.aar
+
+> Task :app:extractOpenCV FAILED
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Build file '/Users/xvkun/Desktop/Projects/ML_demo/app/build.gradle' line: 88
+
+* What went wrong:
+Execution failed for task ':app:extractOpenCV'.
+> Could not copy zip entry '/Users/xvkun/.gradle/caches/modules-2/files-2.1/org.opencv/opencv/4.9.0/b2a6d7e79b40d45781b0448352afc0d160c43d3d/opencv-4.9.0.aar!jni/x86_64/libopencv_java4.so' to '/Users/xvkun/Desktop/Projects/ML_demo/app/build/opencv/jni/x86_64/libopencv_java4.so'.
+   > Could not set file mode 644 on '/Users/xvkun/Desktop/Projects/ML_demo/app/build/opencv/jni/x86_64/libopencv_java4.so'.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 13s
+1 actionable task: 1 executed

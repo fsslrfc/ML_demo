@@ -23,6 +23,14 @@ android {
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a"
         }
+
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++11 -frtti -fexceptions"
+                abiFilters "armeabi-v7a", "arm64-v8a"
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
     }
 
     buildTypes {
@@ -43,13 +51,76 @@ android {
     buildToolsVersion '34.0.0'
     buildFeatures {
         viewBinding true
+        prefab true
     }
     dependenciesInfo {
         includeInApk true
         includeInBundle true
     }
     ndkVersion '29.0.13846066 rc3'
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
 }
+
+// 从OpenCV AAR中提取头文件和库文件
+task extractOpenCV {
+    doLast {
+        def opencvDir = file("${buildDir}/opencv")
+        
+        // 总是重新创建目录（因为clean会删除）
+        opencvDir.mkdirs()
+        
+        // 直接从Gradle缓存中查找OpenCV AAR
+        def gradleUserHome = gradle.gradleUserHomeDir
+        def opencvAar = fileTree(dir: "${gradleUserHome}/caches/modules-2/files-2.1/org.opencv/opencv", include: '**/*.aar').files.find {
+            it.name.contains('opencv') && it.name.endsWith('.aar')
+        }
+        
+        if (opencvAar != null) {
+            println "Found OpenCV AAR: ${opencvAar}"
+            
+            // 解压AAR
+            copy {
+                from zipTree(opencvAar)
+                into opencvDir
+            }
+            
+            // 复制头文件
+            copy {
+                from "${opencvDir}/prefab/modules/opencv_java4/include"
+                into "${opencvDir}/include"
+            }
+            
+            // 复制库文件
+            ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'].each { abi ->
+                def androidAbi = "android.${abi}"
+                copy {
+                    from "${opencvDir}/prefab/modules/opencv_java4/libs/${androidAbi}"
+                    into "${opencvDir}/libs/${abi}"
+                }
+            }
+            
+            println "OpenCV extracted successfully to ${opencvDir}"
+        } else {
+            throw new GradleException("OpenCV AAR not found in Gradle cache!")
+        }
+    }
+}
+
+// 确保在CMake配置前提取OpenCV
+tasks.whenTaskAdded { task ->
+    if (task.name.startsWith('configureCMake') || task.name.contains('externalNativeBuild')) {
+        task.dependsOn extractOpenCV
+    }
+}
+
+// 确保preBuild也依赖extractOpenCV
+preBuild.dependsOn extractOpenCV
 
 dependencies {
     implementation libs.appcompat.v161
