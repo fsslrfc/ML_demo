@@ -1,4 +1,4 @@
-package com.example.ml_demo.patchmatch;
+package com.example.ml_demo.opencv;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -17,6 +17,10 @@ import com.example.ml_demo.R;
 import com.example.ml_demo.common.BaseActivity;
 
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
+import org.opencv.photo.Photo;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,15 +41,12 @@ public class MainActivity extends BaseActivity {
   private static final int MODULE_FORWARD_SUCCESS = 3;
   private static final int MODULE_FORWARD_FAIL = 4;
 
-
   private String imagePath;
   private String maskPath;
   private String outputPath;
   private Bitmap imageBitmap;
   private Bitmap maskBitmap;
   private Bitmap resultBitmap;
-  private PatchMatchNative patchMatchNative;
-
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -108,16 +109,9 @@ public class MainActivity extends BaseActivity {
             hideLoading();
             mStartButton.setEnabled(true);
             llImage3.setVisibility(View.VISIBLE);
-            String result = (String) msg.obj;
-            if (result.startsWith("Success")) {
-              Bitmap resultBitmap = BitmapFactory.decodeFile(outputPath);
-              mImageView3.setImageBitmap(resultBitmap);
-              mStatusText.setText(result);
-              Toast.makeText(MainActivity.this, "处理完成！", Toast.LENGTH_SHORT).show();
-            } else {
-              mStatusText.setText(result);
-              Toast.makeText(MainActivity.this, "处理失败: " + result, Toast.LENGTH_LONG).show();
-            }
+            mImageView3.setImageBitmap(resultBitmap);
+            mStatusText.setText((String) msg.obj);
+            Toast.makeText(MainActivity.this, "处理完成！", Toast.LENGTH_SHORT).show();
             break;
           case MODULE_FORWARD_FAIL:
             Exception e = (Exception) msg.obj;
@@ -139,8 +133,6 @@ public class MainActivity extends BaseActivity {
     } else {
       (Toast.makeText(this, "OpenCV 初始化失败！", Toast.LENGTH_LONG)).show();
     }
-    // 初始化JNI
-    patchMatchNative = new PatchMatchNative();
   }
 
   @Override
@@ -179,9 +171,40 @@ public class MainActivity extends BaseActivity {
     // 在后台线程执行
     new Thread(() -> {
       try {
-        String result = patchMatchNative.inpaintImage(imagePath, maskPath, outputPath);
+        long startTime = System.currentTimeMillis();
+        // 调用OpenCV方法
+        Mat src = new Mat();
+        Mat mask = new Mat();
+        Mat result = new Mat();
+        Utils.bitmapToMat(BitmapFactory.decodeFile(imagePath), src);
+        Utils.bitmapToMat(BitmapFactory.decodeFile(maskPath), mask);
 
-        mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, result));
+        // 关键修复：转换图像格式
+        // 1. 将源图像从RGBA转换为RGB（如果是4通道）
+        if (src.channels() == 4) {
+          Imgproc.cvtColor(src, src, Imgproc.COLOR_RGBA2RGB);
+        }
+
+        // 2. 将mask转换为单通道灰度图
+        if (mask.channels() > 1) {
+          Imgproc.cvtColor(mask, mask, Imgproc.COLOR_BGR2GRAY);
+        }
+
+        // 3. 确保mask是二值图像（0或255）
+        Imgproc.threshold(mask, mask, 127, 255, Imgproc.THRESH_BINARY);
+
+        long preprocessTime = System.currentTimeMillis() - startTime;
+
+        Photo.inpaint(src, mask, result, 3, Photo.INPAINT_TELEA);
+
+        long inferenceTime = System.currentTimeMillis() - startTime - preprocessTime;
+
+        resultBitmap = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(result, resultBitmap);
+
+        long postprocessTime = System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
+
+        mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime, inferenceTime, postprocessTime)));
       } catch (Exception e) {
         mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_FAIL, e));
         e.printStackTrace();

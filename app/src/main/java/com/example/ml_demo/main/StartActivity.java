@@ -16,9 +16,10 @@ import java.util.List;
 
 public class StartActivity extends Activity {
     private final String ITEM_U2_NET = "主体检测：U^2-Net";
-    private final String ITEM_MOBILE_SAM = "主体检测：MobileSAM（在做呢，点进去啥也没有）";
-    private final String ITEM_LAMA = "主体检测：LAMA（在做呢，点进去啥也没有）（不是这玩意儿也太吃性能了吧）";
-    private final String ITEM_PATCH_MATCH = "图像生成：PatchMatch（在做呢，点进去啥也没有）";
+    private final String ITEM_MOBILE_SAM = "主体检测：MobileSAM（还没做）";
+    private final String ITEM_LAMA = "主体检测：LAMA（还没做）";
+    private final String ITEM_PATCH_MATCH = "图像修复：PatchMatch（超级慢，几分钟）";
+    private final String ITEM_OPENCV = "图像修复：OpenCV（快很多，一秒左右）";
 
     private ListView lvMenu;
     private List<String> menuTitles;
@@ -47,6 +48,7 @@ public class StartActivity extends Activity {
         menuItems.add(new MenuItem(ITEM_MOBILE_SAM, com.example.ml_demo.mobilesam.MainActivity.class));
         menuItems.add(new MenuItem(ITEM_LAMA, com.example.ml_demo.lama.MainActivity.class));
         menuItems.add(new MenuItem(ITEM_PATCH_MATCH, com.example.ml_demo.patchmatch.MainActivity.class));
+        menuItems.add(new MenuItem(ITEM_OPENCV, com.example.ml_demo.opencv.MainActivity.class));
 
         // 创建显示用的字符串列表
         menuTitles = new ArrayList<>();

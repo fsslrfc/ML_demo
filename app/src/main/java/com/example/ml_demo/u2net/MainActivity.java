@@ -1,34 +1,26 @@
 package com.example.ml_demo.u2net;
 
-import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.Manifest;
 
 import com.example.ml_demo.R;
+import com.example.ml_demo.common.BaseActivity;
 
 import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
@@ -40,7 +32,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -48,13 +39,10 @@ import java.util.List;
 import java.util.Locale;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
-public class MainActivity extends Activity {
+public class MainActivity extends BaseActivity {
+  private static final String TAG = "活动u2net.MainActivity";
   private static final int PICK_IMAGE_REQUEST = 1;
-  private static final int PERMISSION_REQUEST_CODE = 100;
 
   // 模型文件名
   private static final String U2NET_MODULE = "u2net_mobile.ptl";
@@ -72,17 +60,10 @@ public class MainActivity extends Activity {
   public final int HEIGHT_SIZE = 320;
 
   private Module mModule;
-  private Handler mMainHandler;
-  private Button selectImageButton;
   private Button segmentImageButton;
   private Button display3DButton;
-  private ImageView originalImageView;
-  private ImageView resultImageView;
   private TextView statusText;
-  private LinearLayout resultLayout;
   private Spinner modelSpinner;
-  private TextView loadingText;
-  private FrameLayout loadingLayout;
 
   private boolean isProcessing = false;
 
@@ -95,35 +76,49 @@ public class MainActivity extends Activity {
   private String TEMP_FILE_PATH;
 
   @Override
-  protected void onCreate(@Nullable Bundle savedInstanceState) {
+  protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main);
-    init();
+    setContentView(R.layout.activity_u2net);
+    initView();
+    initVisible();
+    initListener();
+    initHandler();
+    Log.d(TAG, "onCreate");
   }
 
-  private void init() {
+  @Override
+  protected void initView() {
+    super.initView();
     statusText = findViewById(R.id.statusText);
-    selectImageButton = findViewById(R.id.selectImageButton);
     segmentImageButton = findViewById(R.id.segmentImageButton);
     display3DButton = findViewById(R.id.display3DButton);
-    originalImageView = findViewById(R.id.originalImageView);
-    resultImageView = findViewById(R.id.resultImageView);
-    resultLayout = findViewById(R.id.resultLayout);
     modelSpinner = findViewById(R.id.modelSpinner);
-    loadingText = findViewById(R.id.loadingText);
-    loadingLayout = findViewById(R.id.loadingLayout);
+    mLoadingText = findViewById(R.id.loadingText);
+    mLoadingLayout = findViewById(R.id.loadingLayout);
+  }
 
+  @Override
+  protected void initVisible() {
+    super.initVisible();
+    llTop.setVisibility(View.VISIBLE);
+    llImage1.setVisibility(View.VISIBLE);
+    llMiddle.setVisibility(View.VISIBLE);
+    llBottom.setVisibility(View.VISIBLE);
     setupModelSpinner();
+  }
 
-    selectImageButton.setOnClickListener(new View.OnClickListener() {
+  @Override
+  protected void initListener() {
+    super.initListener();
+    setupModelSpinner();
+    mImageButton1.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
         if (checkAndRequestPermissions()) {
-          openImagePicker();
+          selectImage(PICK_IMAGE_REQUEST);
         }
       }
     });
-
     segmentImageButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
@@ -149,7 +144,9 @@ public class MainActivity extends Activity {
         }
       }
     });
+  }
 
+  protected void initHandler() {
     mMainHandler = new Handler(getMainLooper()) {
       @Override
       public void handleMessage(@NonNull Message msg) {
@@ -157,16 +154,17 @@ public class MainActivity extends Activity {
         switch (msg.what) {
           case LOAD_MODULE_SUCCESS:
             statusText.setText("模型加载完成，点击按钮选择图片");
-            selectImageButton.setEnabled(true);
+            mImageButton1.setEnabled(true);
             hideLoading();
             break;
           case LOAD_MODULE_FAILED:
             statusText.setText("模型加载失败！");
-            selectImageButton.setEnabled(false);
+            mImageButton1.setEnabled(false);
             Toast.makeText(MainActivity.this, "模型加载失败，请检查模型文件", Toast.LENGTH_SHORT).show();
+            break;
           case LOAD_IMAGE_SUCCESS:
             showLoading("正在模型推理...");
-            originalImageView.setImageBitmap((Bitmap) msg.obj);
+            mImageView1.setImageBitmap((Bitmap) msg.obj);
             break;
           case MODULE_FORWARD_SUCCESS:
             showLoading("正在转换图片...");
@@ -174,10 +172,9 @@ public class MainActivity extends Activity {
             break;
           case SET_IMAGE_SUCCESS:
             showLoading("正在保存结果...");
-            resultImageView.setImageBitmap((Bitmap) msg.obj);
-            resultLayout.setVisibility(View.VISIBLE);
-            segmentImageButton.setVisibility(View.VISIBLE);
-            display3DButton.setVisibility(View.VISIBLE);
+            mImageView3.setImageBitmap((Bitmap) msg.obj);
+            llImage3.setVisibility(View.VISIBLE);
+            llMiddle.setVisibility(View.VISIBLE);
             break;
           case SAVE_IMAGE_SUCCESS:
             hideLoading();
@@ -186,9 +183,8 @@ public class MainActivity extends Activity {
             hideLoading();
             Toast.makeText(MainActivity.this, "运行失败: " + msg.obj.toString(), Toast.LENGTH_LONG).show();
             statusText.setText("运行失败: " + msg.obj.toString());
-            resultLayout.setVisibility(View.GONE);
-            segmentImageButton.setVisibility(View.GONE);
-            display3DButton.setVisibility(View.GONE);
+            llImage3.setVisibility(View.GONE);
+            llMiddle.setVisibility(View.GONE);
             break;
           default:
             break;
@@ -229,19 +225,17 @@ public class MainActivity extends Activity {
   }
 
   private void clearResults() {
-    resultLayout.setVisibility(View.GONE);
-    segmentImageButton.setVisibility(View.GONE);
-    display3DButton.setVisibility(View.GONE);
+    llImage3.setVisibility(View.GONE);
+    llMiddle.setVisibility(View.GONE);
     currentOriginalBitmap = null;
     currentPredictions = null;
-    originalImageView.setImageBitmap(null);
-    resultImageView.setImageBitmap(null);
+    mImageView1.setImageBitmap(null);
+    mImageView3.setImageBitmap(null);
   }
 
   private void loadModule() {
     String modelDisplayName = currentModelName.equals(U2NETP_MODULE) ? "U2NET-P" : "U2NET";
     statusText.setText("正在加载" + modelDisplayName + "模型...");
-    Toast.makeText(this, "正在加载" + modelDisplayName + "模型...", Toast.LENGTH_SHORT).show();
     String modelPath = assetFilePath(this, currentModelName);
     new Thread(new Runnable() {
       @Override
@@ -259,7 +253,6 @@ public class MainActivity extends Activity {
   @Override
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
-
     if (!isProcessing && requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
       isProcessing = true;
       showLoading("正在加载图片...");
@@ -270,12 +263,10 @@ public class MainActivity extends Activity {
           public void run() {
             try {
               Bitmap rotatedBitmap = rotateImageBasedOnExif(imageUri);
-              mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_IMAGE_SUCCESS,
-                  rotatedBitmap));
+              mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_IMAGE_SUCCESS, rotatedBitmap));
               String info = processImage(rotatedBitmap);
               mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, info));
-              currentResultBitmap = createResultBitmap(currentPredictions,
-                  currentOriginalBitmap.getWidth(), currentOriginalBitmap.getHeight());
+              currentResultBitmap = createResultBitmap(currentPredictions, currentOriginalBitmap.getWidth(), currentOriginalBitmap.getHeight());
               mMainHandler.sendMessage(Message.obtain(mMainHandler, SET_IMAGE_SUCCESS, currentResultBitmap));
               Bitmap croppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
               saveBitmapToTempFile(croppedBitmap);
@@ -310,13 +301,10 @@ public class MainActivity extends Activity {
             case ExifInterface.ORIENTATION_ROTATE_90 -> rotateBitmap(selectedBitmap, 90);
             case ExifInterface.ORIENTATION_ROTATE_180 -> rotateBitmap(selectedBitmap, 180);
             case ExifInterface.ORIENTATION_ROTATE_270 -> rotateBitmap(selectedBitmap, 270);
-            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL ->
-                flipBitmap(selectedBitmap, true, false);
+            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> flipBitmap(selectedBitmap, true, false);
             case ExifInterface.ORIENTATION_FLIP_VERTICAL -> flipBitmap(selectedBitmap, false, true);
-            case ExifInterface.ORIENTATION_TRANSPOSE ->
-                flipBitmap(rotateBitmap(selectedBitmap, 90), true, false);
-            case ExifInterface.ORIENTATION_TRANSVERSE ->
-                flipBitmap(rotateBitmap(selectedBitmap, 270), true, false);
+            case ExifInterface.ORIENTATION_TRANSPOSE -> flipBitmap(rotateBitmap(selectedBitmap, 90), true, false);
+            case ExifInterface.ORIENTATION_TRANSVERSE -> flipBitmap(rotateBitmap(selectedBitmap, 270), true, false);
             default -> selectedBitmap;
           };
         }
@@ -363,16 +351,14 @@ public class MainActivity extends Activity {
       float[] preds = output.getDataAsFloatArray();
       normalizePredictions(preds);
       applyEdgeSmoothing(preds);
-      
-      long postprocessTime =
-          System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
+
+      long postprocessTime = System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
 
       // 保存当前的原图和预测结果
       currentOriginalBitmap = bitmap;
       currentPredictions = preds.clone();
 
-      return String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime,
-          inferenceTime, postprocessTime);
+      return String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime, inferenceTime, postprocessTime);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -412,10 +398,10 @@ public class MainActivity extends Activity {
   private void applyEdgeSmoothing(float[] preds) {
     // 创建边缘检测结果数组
     float[] edges = detectEdges(preds);
-    
+
     // 创建平滑后的预测结果
     float[] smoothedPreds = applySmoothingFilter(preds);
-    
+
     // 只在边缘区域应用平滑效果
     for (int i = 0; i < preds.length; i++) {
       // 根据边缘强度混合原始预测和平滑预测
@@ -430,7 +416,7 @@ public class MainActivity extends Activity {
    */
   private float[] detectEdges(float[] preds) {
     float[] edges = new float[preds.length];
-    
+
     // Sobel算子
     int[] sobelX = {
         -1, 0, 1,
@@ -442,29 +428,29 @@ public class MainActivity extends Activity {
         0, 0, 0,
         1, 2, 1
     };
-    
+
     for (int y = 1; y < HEIGHT_SIZE - 1; y++) {
       for (int x = 1; x < WIDTH_SIZE - 1; x++) {
         int idx = y * WIDTH_SIZE + x;
-        
+
         float gx = 0, gy = 0;
-        
+
         for (int ky = -1; ky <= 1; ky++) {
           for (int kx = -1; kx <= 1; kx++) {
             int pixelIdx = (y + ky) * WIDTH_SIZE + (x + kx);
             int kernelIdx = (ky + 1) * 3 + (kx + 1);
-            
+
             gx += preds[pixelIdx] * sobelX[kernelIdx];
             gy += preds[pixelIdx] * sobelY[kernelIdx];
           }
         }
-        
+
         // 计算梯度幅值
         float magnitude = (float) Math.sqrt(gx * gx + gy * gy);
-        
+
         // 归一化边缘强度到[0, 1]范围，并应用阈值
         edges[idx] = Math.min(1.0f, magnitude * 2.0f);
-        
+
         // 只对较强的边缘进行平滑处理
         if (edges[idx] < 0.3f) {
           edges[idx] = 0;
@@ -474,7 +460,7 @@ public class MainActivity extends Activity {
         }
       }
     }
-    
+
     return edges;
   }
 
@@ -483,19 +469,19 @@ public class MainActivity extends Activity {
    */
   private float[] applySmoothingFilter(float[] preds) {
     float[] smoothed = new float[preds.length];
-    
+
     // 3x3高斯核 (sigma ≈ 0.8)
     float[] gaussianKernel = {
         0.0625f, 0.125f, 0.0625f,
-        0.125f,  0.25f,  0.125f,
+        0.125f, 0.25f, 0.125f,
         0.0625f, 0.125f, 0.0625f
     };
-    
+
     for (int y = 1; y < HEIGHT_SIZE - 1; y++) {
       for (int x = 1; x < WIDTH_SIZE - 1; x++) {
         int idx = y * WIDTH_SIZE + x;
         float sum = 0;
-        
+
         for (int ky = -1; ky <= 1; ky++) {
           for (int kx = -1; kx <= 1; kx++) {
             int pixelIdx = (y + ky) * WIDTH_SIZE + (x + kx);
@@ -503,11 +489,11 @@ public class MainActivity extends Activity {
             sum += preds[pixelIdx] * gaussianKernel[kernelIdx];
           }
         }
-        
+
         smoothed[idx] = sum;
       }
     }
-    
+
     // 处理边界像素（直接复制原值）
     for (int y = 0; y < HEIGHT_SIZE; y++) {
       for (int x = 0; x < WIDTH_SIZE; x++) {
@@ -516,7 +502,7 @@ public class MainActivity extends Activity {
         }
       }
     }
-    
+
     return smoothed;
   }
 
@@ -557,27 +543,27 @@ public class MainActivity extends Activity {
         // 计算在预测数组中的对应位置（使用双线性插值获得更好的质量）
         float predX = x / scaleX;
         float predY = y / scaleY;
-        
+
         // 边界检查
         int x1 = Math.max(0, Math.min(WIDTH_SIZE - 1, (int) predX));
         int y1 = Math.max(0, Math.min(HEIGHT_SIZE - 1, (int) predY));
         int x2 = Math.max(0, Math.min(WIDTH_SIZE - 1, x1 + 1));
         int y2 = Math.max(0, Math.min(HEIGHT_SIZE - 1, y1 + 1));
-        
+
         // 双线性插值获取更精确的显著性值
         float fx = predX - x1;
         float fy = predY - y1;
-        
+
         float pred1 = predictions[y1 * WIDTH_SIZE + x1];
         float pred2 = predictions[y1 * WIDTH_SIZE + x2];
         float pred3 = predictions[y2 * WIDTH_SIZE + x1];
         float pred4 = predictions[y2 * WIDTH_SIZE + x2];
-        
-        float interpolatedPred = pred1 * (1 - fx) * (1 - fy) + 
-                                pred2 * fx * (1 - fy) + 
-                                pred3 * (1 - fx) * fy + 
-                                pred4 * fx * fy;
-        
+
+        float interpolatedPred = pred1 * (1 - fx) * (1 - fy) +
+            pred2 * fx * (1 - fy) +
+            pred3 * (1 - fx) * fy +
+            pred4 * fx * fy;
+
         // 将显著性值转换为alpha通道
         int alpha = Math.max(0, Math.min(255, (int) (interpolatedPred * 255)));
 
@@ -622,120 +608,6 @@ public class MainActivity extends Activity {
       TEMP_FILE_PATH = tempFile.getAbsolutePath();
     } catch (IOException e) {
       e.printStackTrace();
-    }
-  }
-
-  public static String assetFilePath(Context context, String assetName) {
-    File file = new File(context.getFilesDir(), assetName);
-    if (file.exists() && file.length() > 0) {
-      return file.getAbsolutePath();
-    }
-    try (InputStream is = context.getAssets().open(assetName)) {
-      try (OutputStream os = new FileOutputStream(file)) {
-        byte[] buffer = new byte[4 * 1024];
-        int read;
-        while ((read = is.read(buffer)) != -1) {
-          os.write(buffer, 0, read);
-        }
-        os.flush();
-      }
-      return file.getAbsolutePath();
-    } catch (IOException e) {
-      e.printStackTrace();
-      return null;
-    }
-  }
-
-  /**
-   * 检查和请求权限
-   */
-  private boolean checkAndRequestPermissions() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      // Android 13+ 使用 READ_MEDIA_IMAGES
-      if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) 
-          != PackageManager.PERMISSION_GRANTED) {
-        ActivityCompat.requestPermissions(this, 
-            new String[]{Manifest.permission.READ_MEDIA_IMAGES}, 
-            PERMISSION_REQUEST_CODE);
-        return false;
-      }
-    } else {
-      // Android 13以下使用 READ_EXTERNAL_STORAGE
-      if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) 
-          != PackageManager.PERMISSION_GRANTED) {
-        ActivityCompat.requestPermissions(this, 
-            new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 
-            PERMISSION_REQUEST_CODE);
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * 打开图片选择器
-   */
-  private void openImagePicker() {
-    Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-    intent.setType("image/*");
-    startActivityForResult(intent, PICK_IMAGE_REQUEST);
-  }
-
-  @Override
-  public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, 
-      @NonNull int[] grantResults) {
-    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    
-    if (requestCode == PERMISSION_REQUEST_CODE) {
-      if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        // 权限被授予，打开图片选择器
-        openImagePicker();
-      } else {
-        // 权限被拒绝
-        Toast.makeText(this, "需要存储权限才能选择图片", Toast.LENGTH_LONG).show();
-        
-        // 检查是否应该显示权限说明
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-          if (ActivityCompat.shouldShowRequestPermissionRationale(this, 
-              Manifest.permission.READ_MEDIA_IMAGES)) {
-            showPermissionExplanation();
-          }
-        } else {
-          if (ActivityCompat.shouldShowRequestPermissionRationale(this, 
-              Manifest.permission.READ_EXTERNAL_STORAGE)) {
-            showPermissionExplanation();
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * 显示权限说明
-   */
-  private void showPermissionExplanation() {
-    Toast.makeText(this, "应用需要访问图片权限来选择和处理图片，请在设置中手动开启权限", 
-        Toast.LENGTH_LONG).show();
-  }
-
-  /**
-   * 显示加载指示器
-   */
-  private void showLoading(String message) {
-    if (loadingLayout != null) {
-      loadingLayout.setVisibility(View.VISIBLE);
-    }
-    if (loadingText != null) {
-      loadingText.setText(message);
-    }
-  }
-
-  /**
-   * 隐藏加载指示器
-   */
-  private void hideLoading() {
-    if (loadingLayout != null) {
-      loadingLayout.setVisibility(View.GONE);
     }
   }
 

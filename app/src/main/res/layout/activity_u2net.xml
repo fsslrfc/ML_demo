@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true">
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="match_parent">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -20,7 +19,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
-                android:text="PatchMatch"
+                android:text="U^2-Net"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:gravity="center" />
@@ -31,7 +30,31 @@
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
                 android:gravity="center_vertical"
-                android:orientation="vertical" />
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="选择模型: "
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <Spinner
+                        android:id="@+id/modelSpinner"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="3" />
+
+                </LinearLayout>
+
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/llImage1"
@@ -44,7 +67,7 @@
                     android:id="@+id/titleImage1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="原始图像"
+                    android:text="图像1"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:paddingTop="8dp"/>
@@ -61,7 +84,7 @@
                     android:id="@+id/btnImage1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="选择原图"
+                    android:text="选择图像"
                     android:layout_marginTop="8dp"/>
 
             </LinearLayout>
@@ -71,13 +94,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:visibility="gone">
 
                 <TextView
                     android:id="@+id/titleImage2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="掩膜图像"
+                    android:text="图像2"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:paddingTop="10dp"/>
@@ -94,7 +118,7 @@
                     android:id="@+id/btnImage2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="选择掩膜"
+                    android:text="按钮2"
                     android:layout_marginTop="8dp"/>
 
             </LinearLayout>
@@ -107,13 +131,28 @@
                 android:gravity="center_vertical"
                 android:orientation="vertical">
 
-                <Button
-                    android:id="@+id/startButton"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="开始修复"
-                    android:layout_marginTop="16dp"
-                    android:enabled="false" />
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/segmentImageButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="10dp"
+                        android:text="图像分割" />
+
+                    <Button
+                        android:id="@+id/display3DButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:text="3D效果" />
+
+                </LinearLayout>
 
             </LinearLayout>
 

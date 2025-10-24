@@ -20,9 +20,13 @@
         tools:targetApi="31"
         tools:replace="android:allowBackup, android:label">
 
-        <activity android:name=".EmptyActivity"
+        <activity android:name=".common.EmptyActivity"
             android:exported="false"
             android:label="空Activity" />
+
+        <activity android:name=".common.BaseActivity"
+            android:exported="false"
+            android:label="BaseActivity" />
 
         <activity android:name=".main.StartActivity"
             android:exported="true">
@@ -47,6 +51,10 @@
         <activity android:name=".patchmatch.MainActivity"
             android:exported="false"
             android:label="patchmatch入口" />
+
+        <activity android:name=".opencv.MainActivity"
+            android:exported="false"
+            android:label="opencv入口" />
 
         <activity android:name=".u2net.DisplaySegmentActivity"
             android:exported="false"

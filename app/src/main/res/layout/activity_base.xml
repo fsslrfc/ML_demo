@@ -20,7 +20,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
-                android:text="PatchMatch"
+                android:text="标题"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:gravity="center" />
@@ -44,7 +44,7 @@
                     android:id="@+id/titleImage1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="原始图像"
+                    android:text="图像1"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:paddingTop="8dp"/>
@@ -61,7 +61,7 @@
                     android:id="@+id/btnImage1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="选择原图"
+                    android:text="按钮1"
                     android:layout_marginTop="8dp"/>
 
             </LinearLayout>
@@ -71,13 +71,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:visibility="visible">
 
                 <TextView
                     android:id="@+id/titleImage2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="掩膜图像"
+                    android:text="图像2"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:paddingTop="10dp"/>
@@ -94,7 +95,7 @@
                     android:id="@+id/btnImage2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="选择掩膜"
+                    android:text="按钮2"
                     android:layout_marginTop="8dp"/>
 
             </LinearLayout>
@@ -105,17 +106,7 @@
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
                 android:gravity="center_vertical"
-                android:orientation="vertical">
-
-                <Button
-                    android:id="@+id/startButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="开始修复"
-                    android:layout_marginTop="16dp"
-                    android:enabled="false" />
-
-            </LinearLayout>
+                android:orientation="vertical" />
 
             <LinearLayout
                 android:id="@+id/llImage3"
@@ -124,6 +115,7 @@
                 android:layout_margin="10dp"
                 android:orientation="vertical"
                 android:visibility="visible">
+
 
                 <TextView
                     android:id="@+id/titleImage3"
@@ -150,14 +142,8 @@
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
                 android:gravity="center_vertical"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/statusText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-
-            </LinearLayout>
+                android:orientation="vertical"
+                android:visibility="gone" />
 
         </LinearLayout>
 
