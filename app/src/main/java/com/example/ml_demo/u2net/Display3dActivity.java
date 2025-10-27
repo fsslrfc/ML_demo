@@ -88,7 +88,7 @@ public class Display3dActivity extends Activity implements SensorEventListener {
     
     // 从内存中获取数据
     ImageDataManager dataManager = ImageDataManager.getInstance();
-    currentOriginalBitmap = dataManager.getOriginalBitmap();
+    currentOriginalBitmap = dataManager.getResultBitmap();
     currentCroppedBitmap = dataManager.getCroppedBitmap();
 
     if (dataManager.hasData()) {

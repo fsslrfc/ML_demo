@@ -252,17 +252,29 @@ public class BaseActivity extends Activity {
     );
   }
 
+  /**
+   * 修改张量大小，并转换为位图
+   *
+   * @param tensor         原始张量
+   * @param originalWidth  目标宽度
+   * @param originalHeight 目标长度
+   * @return 转换后的位图
+   */
   protected Bitmap transformTensor2Image(Tensor tensor, int originalWidth, int originalHeight) {
     long[] shape = tensor.shape();
     int WIDTH_SIZE = (int) shape[shape.length - 2];
     int HEIGHT_SIZE = (int) shape[shape.length - 1];
-    float[] preds = tensor.getDataAsFloatArray();
+    float[] arr = tensor.getDataAsFloatArray();
+    return transformFloatArray2Image(arr, WIDTH_SIZE, HEIGHT_SIZE, originalWidth, originalHeight);
+  }
+
+  protected Bitmap transformFloatArray2Image(float[] arr, int WIDTH_SIZE, int HEIGHT_SIZE, int originalWidth, int originalHeight) {
     Bitmap mask = Bitmap.createBitmap(WIDTH_SIZE, HEIGHT_SIZE, Bitmap.Config.ARGB_8888);
 
     for (int y = 0; y < HEIGHT_SIZE; y++) {
       for (int x = 0; x < WIDTH_SIZE; x++) {
         int idx = y * WIDTH_SIZE + x;
-        int gray = (int) (preds[idx] * 255);
+        int gray = (int) (arr[idx] * 255);
         int color = Color.rgb(gray, gray, gray);
         mask.setPixel(x, y, color);
       }
@@ -270,6 +282,8 @@ public class BaseActivity extends Activity {
 
     return Bitmap.createScaledBitmap(mask, originalWidth, originalHeight, true);
   }
+
+
 
   /**
    * 将位图保存到当前用用的temp文件夹中，默认使用时间作为文件名保存为png文件，并返回该文件的绝对路径
