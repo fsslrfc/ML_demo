@@ -2,10 +2,7 @@ package com.example.ml_demo.u2net;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.graphics.Matrix;
-import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -26,17 +23,9 @@ import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
 import org.pytorch.Module;
 import org.pytorch.Tensor;
-import org.pytorch.torchvision.TensorImageUtils;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 import androidx.annotation.NonNull;
 
@@ -65,15 +54,17 @@ public class MainActivity extends BaseActivity {
   private TextView statusText;
   private Spinner modelSpinner;
 
-  private boolean isProcessing = false;
 
   private String currentModelName = U2NETP_MODULE;
   private Bitmap currentOriginalBitmap;
   private Bitmap currentResultBitmap;
   private float[] currentPredictions;
+  private Bitmap currentCroppedBitmap;
+  private int originalWidth;
+  private int originalHeight;
+  private boolean isSaving = false;
   private List<String> modelOptions;
   private ArrayAdapter<String> modelAdapter;
-  private String TEMP_FILE_PATH;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -83,6 +74,7 @@ public class MainActivity extends BaseActivity {
     initVisible();
     initListener();
     initHandler();
+    initOpenCV();
     Log.d(TAG, "onCreate");
   }
 
@@ -122,9 +114,13 @@ public class MainActivity extends BaseActivity {
     segmentImageButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        if (currentOriginalBitmap != null) {
+        if (isSaving) {
+          Toast.makeText(MainActivity.this, "正在保存结果，请稍后", Toast.LENGTH_SHORT).show();
+          return;
+        }
+        if (currentOriginalBitmap != null && currentResultBitmap != null && currentCroppedBitmap != null) {
+          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentCroppedBitmap);
           Intent intent = new Intent(MainActivity.this, DisplaySegmentActivity.class);
-          intent.putExtra("cropped_image_path", TEMP_FILE_PATH);
           startActivity(intent);
         } else {
           Toast.makeText(MainActivity.this, "请先选择图片", Toast.LENGTH_SHORT).show();
@@ -135,8 +131,12 @@ public class MainActivity extends BaseActivity {
     display3DButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        if (currentResultBitmap != null && currentOriginalBitmap != null) {
-          ImageDataManager.getInstance().setData(currentOriginalBitmap, TEMP_FILE_PATH);
+        if (isSaving) {
+          Toast.makeText(MainActivity.this, "正在保存结果，请稍后", Toast.LENGTH_SHORT).show();
+          return;
+        }
+        if (currentOriginalBitmap != null && currentResultBitmap != null && currentCroppedBitmap != null) {
+          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentCroppedBitmap);
           Intent intent = new Intent(MainActivity.this, Display3dActivity.class);
           startActivity(intent);
         } else {
@@ -146,6 +146,7 @@ public class MainActivity extends BaseActivity {
     });
   }
 
+  @Override
   protected void initHandler() {
     mMainHandler = new Handler(getMainLooper()) {
       @Override
@@ -164,7 +165,7 @@ public class MainActivity extends BaseActivity {
             break;
           case LOAD_IMAGE_SUCCESS:
             showLoading("正在模型推理...");
-            mImageView1.setImageBitmap((Bitmap) msg.obj);
+            mImageView1.setImageBitmap(currentOriginalBitmap);
             break;
           case MODULE_FORWARD_SUCCESS:
             showLoading("正在转换图片...");
@@ -172,7 +173,7 @@ public class MainActivity extends BaseActivity {
             break;
           case SET_IMAGE_SUCCESS:
             showLoading("正在保存结果...");
-            mImageView3.setImageBitmap((Bitmap) msg.obj);
+            mImageView3.setImageBitmap(currentResultBitmap);
             llImage3.setVisibility(View.VISIBLE);
             llMiddle.setVisibility(View.VISIBLE);
             break;
@@ -253,8 +254,7 @@ public class MainActivity extends BaseActivity {
   @Override
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
-    if (!isProcessing && requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
-      isProcessing = true;
+    if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
       showLoading("正在加载图片...");
       Uri imageUri = data.getData();
       if (imageUri != null) {
@@ -262,20 +262,17 @@ public class MainActivity extends BaseActivity {
           @Override
           public void run() {
             try {
-              Bitmap rotatedBitmap = rotateImageBasedOnExif(imageUri);
-              mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_IMAGE_SUCCESS, rotatedBitmap));
-              String info = processImage(rotatedBitmap);
-              mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, info));
-              currentResultBitmap = createResultBitmap(currentPredictions, currentOriginalBitmap.getWidth(), currentOriginalBitmap.getHeight());
-              mMainHandler.sendMessage(Message.obtain(mMainHandler, SET_IMAGE_SUCCESS, currentResultBitmap));
-              Bitmap croppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
-              saveBitmapToTempFile(croppedBitmap);
+              processImage(imageUri);
+              currentCroppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
+              isSaving = true;
+              saveBitmapToTempFile(currentOriginalBitmap, "u2net_original");
+              saveBitmapToTempFile(currentResultBitmap, "u2net_result");
+              saveBitmapToTempFile(currentCroppedBitmap, "u2net_cropped");
+              isSaving = false;
               mMainHandler.sendMessage(Message.obtain(mMainHandler, SAVE_IMAGE_SUCCESS));
             } catch (Exception e) {
               Log.i("图片加载测试", "图片加载失败！");
               mMainHandler.sendMessage(Message.obtain(mMainHandler, RUN_FAIL, e));
-            } finally {
-              isProcessing = false;
             }
           }
         }).start();
@@ -285,98 +282,44 @@ public class MainActivity extends BaseActivity {
     }
   }
 
-  private Bitmap rotateImageBasedOnExif(Uri imageUri) {
-    try {
-      InputStream inputStream = getContentResolver().openInputStream(imageUri);
-      Bitmap selectedBitmap = BitmapFactory.decodeStream(inputStream);
-      inputStream.close();
-      try {
-        inputStream = getContentResolver().openInputStream(imageUri);
-        if (inputStream != null) {
-          ExifInterface exifInterface = new ExifInterface(inputStream);
-          int orientation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION,
-              ExifInterface.ORIENTATION_UNDEFINED);
-          inputStream.close();
-          return switch (orientation) {
-            case ExifInterface.ORIENTATION_ROTATE_90 -> rotateBitmap(selectedBitmap, 90);
-            case ExifInterface.ORIENTATION_ROTATE_180 -> rotateBitmap(selectedBitmap, 180);
-            case ExifInterface.ORIENTATION_ROTATE_270 -> rotateBitmap(selectedBitmap, 270);
-            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> flipBitmap(selectedBitmap, true, false);
-            case ExifInterface.ORIENTATION_FLIP_VERTICAL -> flipBitmap(selectedBitmap, false, true);
-            case ExifInterface.ORIENTATION_TRANSPOSE -> flipBitmap(rotateBitmap(selectedBitmap, 90), true, false);
-            case ExifInterface.ORIENTATION_TRANSVERSE -> flipBitmap(rotateBitmap(selectedBitmap, 270), true, false);
-            default -> selectedBitmap;
-          };
-        }
-      } catch (Exception e) {
-        return selectedBitmap;
-      }
-    } catch (IOException e) {
-      e.printStackTrace();
-      return null;
-    }
-    return null;
-  }
-
-  private Bitmap rotateBitmap(Bitmap bitmap, float degrees) {
-    Matrix matrix = new Matrix();
-    matrix.postRotate(degrees);
-    return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-  }
-
-  private Bitmap flipBitmap(Bitmap bitmap, boolean horizontal, boolean vertical) {
-    Matrix matrix = new Matrix();
-    matrix.preScale(horizontal ? -1 : 1, vertical ? -1 : 1);
-    return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-  }
-
   /**
    * 模型预测
    *
-   * @param bitmap
+   * @param imageUri 图片uri
    */
-  private String processImage(Bitmap bitmap) {
+  private void processImage(Uri imageUri) {
     try {
       long startTime = System.currentTimeMillis();
 
-      // 预处理
-      Tensor inputTensor = transformImage2Tensor(bitmap);
+      // 预处理：uri -> bitmap -> tensor
+      Bitmap originalBitmap = transformUri2Image(imageUri);
+      currentOriginalBitmap = originalBitmap;
+      mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_IMAGE_SUCCESS));
+      originalWidth = originalBitmap.getWidth();
+      originalHeight = originalBitmap.getHeight();
+      Tensor inputTensor = transformImage2Tensor(originalBitmap, WIDTH_SIZE, HEIGHT_SIZE);
       long preprocessTime = System.currentTimeMillis() - startTime;
 
-      // 模型推理
+      // 模型推理：tensor -> tensor
       Tensor output = mModule.forward(IValue.from(inputTensor)).toTuple()[0].toTensor();
       long inferenceTime = System.currentTimeMillis() - startTime - preprocessTime;
 
-      // 后处理
-      float[] preds = output.getDataAsFloatArray();
-      normalizePredictions(preds);
-      applyEdgeSmoothing(preds);
-
+      // 后处理：tensor -> float[] -> bitmap
+      currentPredictions = normalizePredictions(output.getDataAsFloatArray());
+      currentResultBitmap = transformTensor2Image(output, originalWidth, originalHeight);
+      mMainHandler.sendMessage(Message.obtain(mMainHandler, SET_IMAGE_SUCCESS));
       long postprocessTime = System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
 
-      // 保存当前的原图和预测结果
-      currentOriginalBitmap = bitmap;
-      currentPredictions = preds.clone();
-
-      return String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime, inferenceTime, postprocessTime);
+      // 耗时统计
+      String info = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime, inferenceTime, postprocessTime);
+      mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, info));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
-  private Tensor transformImage2Tensor(Bitmap bitmap) {
-    // 修改图片尺寸为320 * 320(模型原本的输入大小就是320 * 320)
-    Bitmap resized = Bitmap.createScaledBitmap(bitmap, WIDTH_SIZE, HEIGHT_SIZE, true);
-
-    // 将图片转换为 Tensor
-    return TensorImageUtils.bitmapToFloat32Tensor(
-        resized,
-        TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
-        TensorImageUtils.TORCHVISION_NORM_STD_RGB
-    );
-  }
-
-  private void normalizePredictions(float[] preds) {
+  private float[] normalizePredictions(float[] preds) {
+    float[] res = preds;
     // 找到最小值和最大值
     float min = Float.MAX_VALUE;
     float max = -Float.MAX_VALUE;
@@ -388,155 +331,25 @@ public class MainActivity extends BaseActivity {
 
     // 归一化到 [0, 1] 范围
     for (int i = 0; i < preds.length; i++) {
-      preds[i] = (preds[i] - min) / (max - min);
+      res[i] = (preds[i] - min) / (max - min);
     }
+
+    return res;
   }
 
-  /**
-   * 边缘平滑处理 - 只对边缘区域进行平滑，保持主体区域的清晰度
-   */
-  private void applyEdgeSmoothing(float[] preds) {
-    // 创建边缘检测结果数组
-    float[] edges = detectEdges(preds);
-
-    // 创建平滑后的预测结果
-    float[] smoothedPreds = applySmoothingFilter(preds);
-
-    // 只在边缘区域应用平滑效果
-    for (int i = 0; i < preds.length; i++) {
-      // 根据边缘强度混合原始预测和平滑预测
-      float edgeStrength = edges[i];
-      // 边缘强度越高，使用越多的平滑结果
-      preds[i] = preds[i] * (1 - edgeStrength) + smoothedPreds[i] * edgeStrength;
-    }
-  }
-
-  /**
-   * 边缘检测 - 使用Sobel算子检测边缘
-   */
-  private float[] detectEdges(float[] preds) {
-    float[] edges = new float[preds.length];
-
-    // Sobel算子
-    int[] sobelX = {
-        -1, 0, 1,
-        -2, 0, 2,
-        -1, 0, 1
-    };
-    int[] sobelY = {
-        -1, -2, -1,
-        0, 0, 0,
-        1, 2, 1
-    };
-
-    for (int y = 1; y < HEIGHT_SIZE - 1; y++) {
-      for (int x = 1; x < WIDTH_SIZE - 1; x++) {
-        int idx = y * WIDTH_SIZE + x;
-
-        float gx = 0, gy = 0;
-
-        for (int ky = -1; ky <= 1; ky++) {
-          for (int kx = -1; kx <= 1; kx++) {
-            int pixelIdx = (y + ky) * WIDTH_SIZE + (x + kx);
-            int kernelIdx = (ky + 1) * 3 + (kx + 1);
-
-            gx += preds[pixelIdx] * sobelX[kernelIdx];
-            gy += preds[pixelIdx] * sobelY[kernelIdx];
-          }
-        }
-
-        // 计算梯度幅值
-        float magnitude = (float) Math.sqrt(gx * gx + gy * gy);
-
-        // 归一化边缘强度到[0, 1]范围，并应用阈值
-        edges[idx] = Math.min(1.0f, magnitude * 2.0f);
-
-        // 只对较强的边缘进行平滑处理
-        if (edges[idx] < 0.3f) {
-          edges[idx] = 0;
-        } else {
-          // 平滑边缘强度过渡
-          edges[idx] = (edges[idx] - 0.3f) / 0.7f;
-        }
-      }
-    }
-
-    return edges;
-  }
-
-  /**
-   * 应用高斯平滑滤波器
-   */
-  private float[] applySmoothingFilter(float[] preds) {
-    float[] smoothed = new float[preds.length];
-
-    // 3x3高斯核 (sigma ≈ 0.8)
-    float[] gaussianKernel = {
-        0.0625f, 0.125f, 0.0625f,
-        0.125f, 0.25f, 0.125f,
-        0.0625f, 0.125f, 0.0625f
-    };
-
-    for (int y = 1; y < HEIGHT_SIZE - 1; y++) {
-      for (int x = 1; x < WIDTH_SIZE - 1; x++) {
-        int idx = y * WIDTH_SIZE + x;
-        float sum = 0;
-
-        for (int ky = -1; ky <= 1; ky++) {
-          for (int kx = -1; kx <= 1; kx++) {
-            int pixelIdx = (y + ky) * WIDTH_SIZE + (x + kx);
-            int kernelIdx = (ky + 1) * 3 + (kx + 1);
-            sum += preds[pixelIdx] * gaussianKernel[kernelIdx];
-          }
-        }
-
-        smoothed[idx] = sum;
-      }
-    }
-
-    // 处理边界像素（直接复制原值）
-    for (int y = 0; y < HEIGHT_SIZE; y++) {
-      for (int x = 0; x < WIDTH_SIZE; x++) {
-        if (y == 0 || y == HEIGHT_SIZE - 1 || x == 0 || x == WIDTH_SIZE - 1) {
-          smoothed[y * WIDTH_SIZE + x] = preds[y * WIDTH_SIZE + x];
-        }
-      }
-    }
-
-    return smoothed;
-  }
-
-  private Bitmap createResultBitmap(float[] preds, int originalWidth, int originalHeight) {
-    // 创建320x320的掩码图片
-    Bitmap mask = Bitmap.createBitmap(WIDTH_SIZE, HEIGHT_SIZE, Bitmap.Config.ARGB_8888);
-
-    for (int y = 0; y < HEIGHT_SIZE; y++) {
-      for (int x = 0; x < WIDTH_SIZE; x++) {
-        int idx = y * WIDTH_SIZE + x;
-        int gray = (int) (preds[idx] * 255);
-        int color = Color.rgb(gray, gray, gray);
-        mask.setPixel(x, y, color);
-      }
-    }
-
-    // 缩放回原图大小
-    return Bitmap.createScaledBitmap(mask, originalWidth, originalHeight, true);
-  }
 
   private Bitmap createCroppedBitmap(Bitmap originalBitmap, float[] predictions) {
-    int width = originalBitmap.getWidth();
-    int height = originalBitmap.getHeight();
 
     // 创建带透明通道的结果图片，使用高质量配置
-    Bitmap croppedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    Bitmap croppedBitmap = Bitmap.createBitmap(originalWidth, originalHeight, Bitmap.Config.ARGB_8888);
 
     // 直接使用预测数据，避免额外的Bitmap创建和缩放
     // 计算缩放比例
-    float scaleX = (float) width / WIDTH_SIZE;
-    float scaleY = (float) height / HEIGHT_SIZE;
+    float scaleX = (float) originalWidth / WIDTH_SIZE;
+    float scaleY = (float) originalHeight / HEIGHT_SIZE;
 
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
+    for (int y = 0; y < originalHeight; y++) {
+      for (int x = 0; x < originalWidth; x++) {
         // 获取原图像素
         int originalPixel = originalBitmap.getPixel(x, y);
 
@@ -578,37 +391,6 @@ public class MainActivity extends BaseActivity {
     }
 
     return croppedBitmap;
-  }
-
-  private Bitmap createMaskBitmap(float[] predictions) {
-    Bitmap mask = Bitmap.createBitmap(WIDTH_SIZE, HEIGHT_SIZE, Bitmap.Config.ARGB_8888);
-
-    for (int y = 0; y < HEIGHT_SIZE; y++) {
-      for (int x = 0; x < WIDTH_SIZE; x++) {
-        int idx = y * WIDTH_SIZE + x;
-        int gray = (int) (predictions[idx] * 255);
-        int color = Color.rgb(gray, gray, gray);
-        mask.setPixel(x, y, color);
-      }
-    }
-
-    return mask;
-  }
-
-  private void saveBitmapToTempFile(Bitmap bitmap) {
-    try {
-      SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
-      String timestamp = sdf.format(new Date());
-      File tempFile = new File(getCacheDir(), timestamp + ".png");
-      FileOutputStream out = new FileOutputStream(tempFile);
-      // 使用PNG格式和最高质量保存，确保透明度和细节不丢失
-      bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
-      out.flush();
-      out.close();
-      TEMP_FILE_PATH = tempFile.getAbsolutePath();
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
   }
 
 }

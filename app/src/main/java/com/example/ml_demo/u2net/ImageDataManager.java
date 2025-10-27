@@ -4,12 +4,13 @@ import android.graphics.Bitmap;
 
 /**
  * 图片数据管理器 - 用于在Activity间传递大数据
- * 使用单例模式在内存中临时存储Bitmap和预测结果
+ * 使用单例模式在内存中临时存储数据
  */
 public class ImageDataManager {
     private static ImageDataManager instance;
     private Bitmap originalBitmap;
-    private String resultString;
+    private Bitmap resultBitmap;
+    private Bitmap croppedBitmap;
 
     private ImageDataManager() {
     }
@@ -31,9 +32,10 @@ public class ImageDataManager {
     /**
      * 设置图片和预测数据
      */
-    public void setData(Bitmap originalBitmap, String resultPath) {
+    public void setData(Bitmap originalBitmap, Bitmap resultBitmap, Bitmap croppedBitmap) {
         this.originalBitmap = originalBitmap;
-        this.resultString = resultPath;
+        this.resultBitmap = resultBitmap;
+        this.croppedBitmap = croppedBitmap;
     }
 
     /**
@@ -46,14 +48,21 @@ public class ImageDataManager {
     /**
      * 获取预测结果
      */
-    public String getResultString() {
-        return resultString;
+    public Bitmap getResultBitmap() {
+        return resultBitmap;
+    }
+
+    /**
+     * 获取裁剪图片
+     */
+    public Bitmap getCroppedBitmap() {
+        return croppedBitmap;
     }
 
     /**
      * 检查数据是否可用
      */
     public boolean hasData() {
-        return originalBitmap != null && resultString != null;
+        return originalBitmap != null && resultBitmap != null && croppedBitmap != null;
     }
 }

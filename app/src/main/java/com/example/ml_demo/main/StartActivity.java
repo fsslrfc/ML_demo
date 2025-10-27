@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class StartActivity extends Activity {
-    private final String ITEM_U2_NET = "主体检测：U^2-Net";
+    private final String ITEM_U2_NET = "主体检测：U2-Net";
     private final String ITEM_MOBILE_SAM = "主体检测：MobileSAM（还没做）";
     private final String ITEM_LAMA = "主体检测：LAMA（还没做）";
     private final String ITEM_PATCH_MATCH = "图像修复：PatchMatch（超级慢，几分钟）";

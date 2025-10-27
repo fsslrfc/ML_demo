@@ -19,7 +19,6 @@ import com.example.ml_demo.common.BaseActivity;
 import org.opencv.android.OpenCVLoader;
 
 import java.io.File;
-import java.io.IOException;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -84,6 +83,7 @@ public class MainActivity extends BaseActivity {
     mStartButton.setOnClickListener(v -> processImage());
   }
 
+  @Override
   protected void initHandler() {
     mMainHandler = new Handler(getMainLooper()) {
       @Override
@@ -133,16 +133,6 @@ public class MainActivity extends BaseActivity {
     };
   }
 
-  private void initOpenCV() {
-    if (OpenCVLoader.initLocal()) {
-      (Toast.makeText(this, "OpenCV 初始化成功", Toast.LENGTH_LONG)).show();
-    } else {
-      (Toast.makeText(this, "OpenCV 初始化失败！", Toast.LENGTH_LONG)).show();
-    }
-    // 初始化JNI
-    patchMatchNative = new PatchMatchNative();
-  }
-
   @Override
   protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
@@ -152,18 +142,14 @@ public class MainActivity extends BaseActivity {
       new Thread(new Runnable() {
         @Override
         public void run() {
-          try {
-            if (requestCode == REQUEST_IMAGE_PICK) {
-              imagePath = saveImageToInternalStorage(imageUri, "input_image.jpg");
-              imageBitmap = BitmapFactory.decodeFile(imagePath);
-              mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_IMAGE_SUCCESS));
-            } else if (requestCode == REQUEST_MASK_PICK) {
-              maskPath = saveImageToInternalStorage(imageUri, "input_mask.jpg");
-              maskBitmap = BitmapFactory.decodeFile(maskPath);
-              mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_MASK_SUCCESS));
-            }
-          } catch (IOException e) {
-            e.printStackTrace();
+          if (requestCode == REQUEST_IMAGE_PICK) {
+            imagePath = saveImageToInternalStorage(imageUri, "input_image.jpg");
+            imageBitmap = BitmapFactory.decodeFile(imagePath);
+            mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_IMAGE_SUCCESS));
+          } else if (requestCode == REQUEST_MASK_PICK) {
+            maskPath = saveImageToInternalStorage(imageUri, "input_mask.jpg");
+            maskBitmap = BitmapFactory.decodeFile(maskPath);
+            mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_MASK_SUCCESS));
           }
         }
       }).start();

@@ -2,7 +2,6 @@ package com.example.ml_demo.opencv;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,14 +15,10 @@ import android.widget.Toast;
 import com.example.ml_demo.R;
 import com.example.ml_demo.common.BaseActivity;
 
-import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.photo.Photo;
-
-import java.io.File;
-import java.io.IOException;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -41,12 +36,9 @@ public class MainActivity extends BaseActivity {
   private static final int MODULE_FORWARD_SUCCESS = 3;
   private static final int MODULE_FORWARD_FAIL = 4;
 
-  private String imagePath;
-  private String maskPath;
-  private String outputPath;
-  private Bitmap imageBitmap;
-  private Bitmap maskBitmap;
-  private Bitmap resultBitmap;
+  private Bitmap currentOriginalBitmap;
+  private Bitmap currentMaskBitmap;
+  private Bitmap currentResultBitmap;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -85,6 +77,7 @@ public class MainActivity extends BaseActivity {
     mStartButton.setOnClickListener(v -> processImage());
   }
 
+  @Override
   protected void initHandler() {
     mMainHandler = new Handler(getMainLooper()) {
       @Override
@@ -93,15 +86,15 @@ public class MainActivity extends BaseActivity {
         switch (msg.what) {
           case LOAD_IMAGE_SUCCESS:
             hideLoading();
-            mImageView1.setImageBitmap(imageBitmap);
-            if (imagePath != null && maskPath != null) {
+            mImageView1.setImageBitmap(currentOriginalBitmap);
+            if (currentOriginalBitmap != null && currentMaskBitmap != null) {
               mStartButton.setEnabled(true);
             }
             break;
           case LOAD_MASK_SUCCESS:
             hideLoading();
-            mImageView2.setImageBitmap(maskBitmap);
-            if (imagePath != null && maskPath != null) {
+            mImageView2.setImageBitmap(currentMaskBitmap);
+            if (currentOriginalBitmap != null && currentMaskBitmap != null) {
               mStartButton.setEnabled(true);
             }
             break;
@@ -109,7 +102,7 @@ public class MainActivity extends BaseActivity {
             hideLoading();
             mStartButton.setEnabled(true);
             llImage3.setVisibility(View.VISIBLE);
-            mImageView3.setImageBitmap(resultBitmap);
+            mImageView3.setImageBitmap(currentResultBitmap);
             mStatusText.setText((String) msg.obj);
             Toast.makeText(MainActivity.this, "处理完成！", Toast.LENGTH_SHORT).show();
             break;
@@ -127,14 +120,6 @@ public class MainActivity extends BaseActivity {
     };
   }
 
-  private void initOpenCV() {
-    if (OpenCVLoader.initLocal()) {
-      (Toast.makeText(this, "OpenCV 初始化成功", Toast.LENGTH_LONG)).show();
-    } else {
-      (Toast.makeText(this, "OpenCV 初始化失败！", Toast.LENGTH_LONG)).show();
-    }
-  }
-
   @Override
   protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
@@ -144,18 +129,14 @@ public class MainActivity extends BaseActivity {
       new Thread(new Runnable() {
         @Override
         public void run() {
-          try {
-            if (requestCode == REQUEST_IMAGE_PICK) {
-              imagePath = saveImageToInternalStorage(imageUri, "input_image.jpg");
-              imageBitmap = BitmapFactory.decodeFile(imagePath);
-              mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_IMAGE_SUCCESS));
-            } else if (requestCode == REQUEST_MASK_PICK) {
-              maskPath = saveImageToInternalStorage(imageUri, "input_mask.jpg");
-              maskBitmap = BitmapFactory.decodeFile(maskPath);
-              mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_MASK_SUCCESS));
-            }
-          } catch (IOException e) {
-            e.printStackTrace();
+          if (requestCode == REQUEST_IMAGE_PICK) {
+            currentOriginalBitmap = transformUri2Image(imageUri);
+            saveBitmapToTempFile(currentOriginalBitmap, "opencv_original.png");
+            mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_IMAGE_SUCCESS));
+          } else if (requestCode == REQUEST_MASK_PICK) {
+            currentMaskBitmap = transformUri2Image(imageUri);
+            saveBitmapToTempFile(currentMaskBitmap, "opencv_mask.png");
+            mMainHandler.sendMessage(Message.obtain(mMainHandler, LOAD_MASK_SUCCESS));
           }
         }
       }).start();
@@ -163,8 +144,6 @@ public class MainActivity extends BaseActivity {
   }
 
   private void processImage() {
-    outputPath = new File(getFilesDir(), "output_image.jpg").getAbsolutePath();
-
     mStartButton.setEnabled(false);
     showLoading("处理中，请稍候...");
 
@@ -176,8 +155,8 @@ public class MainActivity extends BaseActivity {
         Mat src = new Mat();
         Mat mask = new Mat();
         Mat result = new Mat();
-        Utils.bitmapToMat(BitmapFactory.decodeFile(imagePath), src);
-        Utils.bitmapToMat(BitmapFactory.decodeFile(maskPath), mask);
+        Utils.bitmapToMat(currentOriginalBitmap, src);
+        Utils.bitmapToMat(currentMaskBitmap, mask);
 
         // 关键修复：转换图像格式
         // 1. 将源图像从RGBA转换为RGB（如果是4通道）
@@ -193,18 +172,23 @@ public class MainActivity extends BaseActivity {
         // 3. 确保mask是二值图像（0或255）
         Imgproc.threshold(mask, mask, 127, 255, Imgproc.THRESH_BINARY);
 
-        long preprocessTime = System.currentTimeMillis() - startTime;
+        long preProcessTime = System.currentTimeMillis() - startTime;
 
+        // OpenCV修复
         Photo.inpaint(src, mask, result, 3, Photo.INPAINT_TELEA);
 
-        long inferenceTime = System.currentTimeMillis() - startTime - preprocessTime;
+        long inferenceTime = System.currentTimeMillis() - startTime - preProcessTime;
 
-        resultBitmap = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(result, resultBitmap);
+        currentResultBitmap = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(result, currentResultBitmap);
 
-        long postprocessTime = System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
+        saveBitmapToTempFile(currentOriginalBitmap, "opencv_original");
+        saveBitmapToTempFile(currentMaskBitmap, "opencv_mask");
+        saveBitmapToTempFile(currentResultBitmap, "opencv_result");
 
-        mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime, inferenceTime, postprocessTime)));
+        long postProcessTime = System.currentTimeMillis() - startTime - preProcessTime - inferenceTime;
+        String info = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preProcessTime, inferenceTime, postProcessTime);
+        mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, info));
       } catch (Exception e) {
         mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_FAIL, e));
         e.printStackTrace();

@@ -3,7 +3,6 @@ package com.example.ml_demo.u2net;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.hardware.Sensor;
@@ -21,9 +20,8 @@ import androidx.annotation.Nullable;
 
 public class Display3dActivity extends Activity implements SensorEventListener {
   private Bitmap currentOriginalBitmap;
-  private Bitmap currentResultBitmap;
-  private String currentResultString;
-  
+  private Bitmap currentCroppedBitmap;
+
   // 模型输出尺寸常量
   public final int WIDTH_SIZE = 320;
   public final int HEIGHT_SIZE = 320;
@@ -91,14 +89,10 @@ public class Display3dActivity extends Activity implements SensorEventListener {
     // 从内存中获取数据
     ImageDataManager dataManager = ImageDataManager.getInstance();
     currentOriginalBitmap = dataManager.getOriginalBitmap();
-    currentResultString = dataManager.getResultString();
-
-    if (currentResultString != null) {
-      currentResultBitmap = BitmapFactory.decodeFile(currentResultString);
-    }
+    currentCroppedBitmap = dataManager.getCroppedBitmap();
 
     if (dataManager.hasData()) {
-      setContentView(show3DView(currentOriginalBitmap, currentResultBitmap));
+      setContentView(show3DView(currentOriginalBitmap, currentCroppedBitmap));
     } else {
       finish();
     }
