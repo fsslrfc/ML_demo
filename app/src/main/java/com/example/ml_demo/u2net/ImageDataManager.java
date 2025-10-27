@@ -10,6 +10,7 @@ public class ImageDataManager {
     private static ImageDataManager instance;
     private Bitmap originalBitmap;
     private Bitmap resultBitmap;
+    private Bitmap maskBitmap;
     private Bitmap croppedBitmap;
 
     private ImageDataManager() {
@@ -32,9 +33,10 @@ public class ImageDataManager {
     /**
      * 设置图片和预测数据
      */
-    public void setData(Bitmap originalBitmap, Bitmap resultBitmap, Bitmap croppedBitmap) {
+    public void setData(Bitmap originalBitmap, Bitmap resultBitmap, Bitmap maskBitmap, Bitmap croppedBitmap) {
         this.originalBitmap = originalBitmap;
         this.resultBitmap = resultBitmap;
+        this.maskBitmap = maskBitmap;
         this.croppedBitmap = croppedBitmap;
     }
 
@@ -50,6 +52,13 @@ public class ImageDataManager {
      */
     public Bitmap getResultBitmap() {
         return resultBitmap;
+    }
+
+    /**
+     * 获取掩码图像
+     */
+    public Bitmap getMaskBitmap() {
+        return maskBitmap;
     }
 
     /**

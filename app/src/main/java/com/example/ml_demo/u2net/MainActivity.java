@@ -19,6 +19,10 @@ import android.widget.Toast;
 import com.example.ml_demo.R;
 import com.example.ml_demo.common.BaseActivity;
 
+import org.opencv.android.Utils;
+import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
+import org.opencv.photo.Photo;
 import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
 import org.pytorch.Module;
@@ -44,9 +48,12 @@ public class MainActivity extends BaseActivity {
   private static final int LOAD_IMAGE_SUCCESS = 3;
   private static final int MODULE_FORWARD_SUCCESS = 4;
   private static final int SET_IMAGE_SUCCESS = 5;
-  private static final int SAVE_IMAGE_SUCCESS = 6;
+  private static final int OPENCV_FORWARD_SUCCESS = 6;
+  private static final int OPENCV_FORWARD_FAIL = 7;
+  private static final int SAVE_IMAGE_SUCCESS = 8;
   public final int WIDTH_SIZE = 320;
   public final int HEIGHT_SIZE = 320;
+  public final float LEVEL = 0.1f;
 
   private Module mModule;
   private Button segmentImageButton;
@@ -59,6 +66,7 @@ public class MainActivity extends BaseActivity {
   private Bitmap currentOriginalBitmap;
   private Bitmap currentResultBitmap;
   private float[] currentPredictions;
+  private Bitmap currentMaskBitmap;
   private Bitmap currentCroppedBitmap;
   private int originalWidth;
   private int originalHeight;
@@ -118,8 +126,8 @@ public class MainActivity extends BaseActivity {
           Toast.makeText(MainActivity.this, "正在保存结果，请稍后", Toast.LENGTH_SHORT).show();
           return;
         }
-        if (currentOriginalBitmap != null && currentResultBitmap != null && currentCroppedBitmap != null) {
-          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentCroppedBitmap);
+        if (currentOriginalBitmap != null && currentResultBitmap != null && currentMaskBitmap != null && currentCroppedBitmap != null) {
+          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentMaskBitmap, currentCroppedBitmap);
           Intent intent = new Intent(MainActivity.this, DisplaySegmentActivity.class);
           startActivity(intent);
         } else {
@@ -135,8 +143,8 @@ public class MainActivity extends BaseActivity {
           Toast.makeText(MainActivity.this, "正在保存结果，请稍后", Toast.LENGTH_SHORT).show();
           return;
         }
-        if (currentOriginalBitmap != null && currentResultBitmap != null && currentCroppedBitmap != null) {
-          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentCroppedBitmap);
+        if (currentOriginalBitmap != null && currentResultBitmap != null && currentMaskBitmap != null && currentCroppedBitmap != null) {
+          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentMaskBitmap, currentCroppedBitmap);
           Intent intent = new Intent(MainActivity.this, Display3dActivity.class);
           startActivity(intent);
         } else {
@@ -168,19 +176,21 @@ public class MainActivity extends BaseActivity {
             mImageView1.setImageBitmap(currentOriginalBitmap);
             break;
           case MODULE_FORWARD_SUCCESS:
-            showLoading("正在转换图片...");
-            statusText.setText("显著性检测完成" + msg.obj);
+            showLoading("正在保存结果...");
             break;
           case SET_IMAGE_SUCCESS:
-            showLoading("正在保存结果...");
+            showLoading("正在综合处理...");
             mImageView3.setImageBitmap(currentResultBitmap);
             llImage3.setVisibility(View.VISIBLE);
             llMiddle.setVisibility(View.VISIBLE);
+            statusText.setText("显著性检测完成" + msg.obj.toString());
             break;
+          case OPENCV_FORWARD_SUCCESS:
           case SAVE_IMAGE_SUCCESS:
             hideLoading();
             break;
           case RUN_FAIL:
+          case OPENCV_FORWARD_FAIL:
             hideLoading();
             Toast.makeText(MainActivity.this, "运行失败: " + msg.obj.toString(), Toast.LENGTH_LONG).show();
             statusText.setText("运行失败: " + msg.obj.toString());
@@ -262,11 +272,13 @@ public class MainActivity extends BaseActivity {
           @Override
           public void run() {
             try {
-              processImage(imageUri);
-              currentCroppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
+              // 处理图像
+              u2netProcessImage(imageUri);
+              opencvProcessImage();
               isSaving = true;
               saveBitmapToTempFile(currentOriginalBitmap, "u2net_original");
               saveBitmapToTempFile(currentResultBitmap, "u2net_result");
+              saveBitmapToTempFile(currentMaskBitmap, "u2net_mask");
               saveBitmapToTempFile(currentCroppedBitmap, "u2net_cropped");
               isSaving = false;
               mMainHandler.sendMessage(Message.obtain(mMainHandler, SAVE_IMAGE_SUCCESS));
@@ -283,11 +295,11 @@ public class MainActivity extends BaseActivity {
   }
 
   /**
-   * 模型预测
+   * U2-Net模型预测
    *
    * @param imageUri 图片uri
    */
-  private void processImage(Uri imageUri) {
+  private void u2netProcessImage(Uri imageUri) {
     try {
       long startTime = System.currentTimeMillis();
 
@@ -298,28 +310,75 @@ public class MainActivity extends BaseActivity {
       originalWidth = originalBitmap.getWidth();
       originalHeight = originalBitmap.getHeight();
       Tensor inputTensor = transformImage2Tensor(originalBitmap, WIDTH_SIZE, HEIGHT_SIZE);
-      long preprocessTime = System.currentTimeMillis() - startTime;
+      long preProcessTime = System.currentTimeMillis() - startTime;
 
       // 模型推理：tensor -> tensor
       Tensor output = mModule.forward(IValue.from(inputTensor)).toTuple()[0].toTensor();
-      long inferenceTime = System.currentTimeMillis() - startTime - preprocessTime;
+      mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS));
+      long inferenceTime = System.currentTimeMillis() - startTime - preProcessTime;
 
       // 后处理：tensor -> float[] -> bitmap
-      currentPredictions = normalizePredictions(output.getDataAsFloatArray());
+      float[] preds = output.getDataAsFloatArray();
+      currentPredictions = normalizePredictions(preds);
       currentResultBitmap = transformTensor2Image(output, originalWidth, originalHeight);
-      mMainHandler.sendMessage(Message.obtain(mMainHandler, SET_IMAGE_SUCCESS));
-      long postprocessTime = System.currentTimeMillis() - startTime - preprocessTime - inferenceTime;
+      currentCroppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
+      currentMaskBitmap = normalizeMask(currentPredictions, LEVEL);
+      long postProcessTime = System.currentTimeMillis() - startTime - preProcessTime - inferenceTime;
 
       // 耗时统计
-      String info = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preprocessTime, inferenceTime, postprocessTime);
-      mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, info));
+      String info = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preProcessTime, inferenceTime, postProcessTime);
+      mMainHandler.sendMessage(Message.obtain(mMainHandler, SET_IMAGE_SUCCESS, info));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
+  private void opencvProcessImage(){
+    new Thread(() -> {
+      try {
+        long startTime = System.currentTimeMillis();
+        // 调用OpenCV方法
+        Mat src = new Mat();
+        Mat mask = new Mat();
+        Mat result = new Mat();
+        Utils.bitmapToMat(currentOriginalBitmap, src);
+        Utils.bitmapToMat(currentMaskBitmap, mask);
+
+        // 关键修复：转换图像格式
+        // 1. 将源图像从RGBA转换为RGB（如果是4通道）
+        if (src.channels() == 4) {
+          Imgproc.cvtColor(src, src, Imgproc.COLOR_RGBA2RGB);
+        }
+
+        // 2. 将mask转换为单通道灰度图
+        if (mask.channels() > 1) {
+          Imgproc.cvtColor(mask, mask, Imgproc.COLOR_BGR2GRAY);
+        }
+
+        // 3. 确保mask是二值图像（0或255）
+        Imgproc.threshold(mask, mask, 127, 255, Imgproc.THRESH_BINARY);
+
+        long preProcessTime = System.currentTimeMillis() - startTime;
+
+        // OpenCV修复
+        Photo.inpaint(src, mask, result, 3, Photo.INPAINT_TELEA);
+
+        long inferenceTime = System.currentTimeMillis() - startTime - preProcessTime;
+
+        currentResultBitmap = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(result, currentResultBitmap);
+
+        long postProcessTime = System.currentTimeMillis() - startTime - preProcessTime - inferenceTime;
+        String info = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preProcessTime, inferenceTime, postProcessTime);
+        mMainHandler.sendMessage(Message.obtain(mMainHandler, OPENCV_FORWARD_SUCCESS, info));
+      } catch (Exception e) {
+        mMainHandler.sendMessage(Message.obtain(mMainHandler, OPENCV_FORWARD_FAIL, e));
+        e.printStackTrace();
+      }
+    }).start();
+  }
+
   private float[] normalizePredictions(float[] preds) {
-    float[] res = preds;
     // 找到最小值和最大值
     float min = Float.MAX_VALUE;
     float max = -Float.MAX_VALUE;
@@ -331,12 +390,20 @@ public class MainActivity extends BaseActivity {
 
     // 归一化到 [0, 1] 范围
     for (int i = 0; i < preds.length; i++) {
-      res[i] = (preds[i] - min) / (max - min);
+      preds[i] = (preds[i] - min) / (max - min);
     }
 
-    return res;
+    return preds;
   }
 
+  private Bitmap normalizeMask(float[] preds, float level) {
+    // 归一化到 (0, 1) 二值
+    for (int i = 0; i < preds.length; i++) {
+      preds[i] = preds[i] >= level ? 1f : 0f;
+    }
+
+    return transformFloatArray2Image(preds, WIDTH_SIZE, HEIGHT_SIZE, originalWidth, originalHeight);
+  }
 
   private Bitmap createCroppedBitmap(Bitmap originalBitmap, float[] predictions) {
 

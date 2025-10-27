@@ -33,8 +33,8 @@ public class MainActivity extends BaseActivity {
 
   private static final int LOAD_IMAGE_SUCCESS = 1;
   private static final int LOAD_MASK_SUCCESS = 2;
-  private static final int MODULE_FORWARD_SUCCESS = 3;
-  private static final int MODULE_FORWARD_FAIL = 4;
+  private static final int OPENCV_FORWARD_SUCCESS = 3;
+  private static final int OPENCV_FORWARD_FAIL = 4;
 
   private Bitmap currentOriginalBitmap;
   private Bitmap currentMaskBitmap;
@@ -98,7 +98,7 @@ public class MainActivity extends BaseActivity {
               mStartButton.setEnabled(true);
             }
             break;
-          case MODULE_FORWARD_SUCCESS:
+          case OPENCV_FORWARD_SUCCESS:
             hideLoading();
             mStartButton.setEnabled(true);
             llImage3.setVisibility(View.VISIBLE);
@@ -106,7 +106,7 @@ public class MainActivity extends BaseActivity {
             mStatusText.setText((String) msg.obj);
             Toast.makeText(MainActivity.this, "处理完成！", Toast.LENGTH_SHORT).show();
             break;
-          case MODULE_FORWARD_FAIL:
+          case OPENCV_FORWARD_FAIL:
             Exception e = (Exception) msg.obj;
             hideLoading();
             mStartButton.setEnabled(true);
@@ -188,9 +188,9 @@ public class MainActivity extends BaseActivity {
 
         long postProcessTime = System.currentTimeMillis() - startTime - preProcessTime - inferenceTime;
         String info = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preProcessTime, inferenceTime, postProcessTime);
-        mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_SUCCESS, info));
+        mMainHandler.sendMessage(Message.obtain(mMainHandler, OPENCV_FORWARD_SUCCESS, info));
       } catch (Exception e) {
-        mMainHandler.sendMessage(Message.obtain(mMainHandler, MODULE_FORWARD_FAIL, e));
+        mMainHandler.sendMessage(Message.obtain(mMainHandler, OPENCV_FORWARD_FAIL, e));
         e.printStackTrace();
       }
     }).start();
