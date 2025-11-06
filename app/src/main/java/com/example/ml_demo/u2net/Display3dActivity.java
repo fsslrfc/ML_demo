@@ -2,6 +2,7 @@ package com.example.ml_demo.u2net;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -19,7 +20,7 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 
 public class Display3dActivity extends Activity implements SensorEventListener {
-  private Bitmap currentOriginalBitmap;
+  private Bitmap currentResultBitmap;
   private Bitmap currentCroppedBitmap;
 
   // 模型输出尺寸常量
@@ -85,14 +86,27 @@ public class Display3dActivity extends Activity implements SensorEventListener {
     sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
     accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
     gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-    
+
+    Intent intent = getIntent();
+    String action = intent.getStringExtra("action");
+
     // 从内存中获取数据
     ImageDataManager dataManager = ImageDataManager.getInstance();
-    currentOriginalBitmap = dataManager.getResultBitmap();
-    currentCroppedBitmap = dataManager.getCroppedBitmap();
+    currentResultBitmap = dataManager.getResultBitmap();
+    switch (action) {
+      case "isOutline":
+        currentCroppedBitmap = dataManager.getOutlineBitmap();
+        break;
+      case "isResult":
+        currentCroppedBitmap = dataManager.getCroppedBitmap();
+        break;
+      case "isShadow":
+        currentCroppedBitmap = dataManager.getShadowBitmap();
+        break;
+    }
 
     if (dataManager.hasData()) {
-      setContentView(show3DView(currentOriginalBitmap, currentCroppedBitmap));
+      setContentView(show3DView(currentResultBitmap, currentCroppedBitmap));
     } else {
       finish();
     }
@@ -244,7 +258,7 @@ public class Display3dActivity extends Activity implements SensorEventListener {
 
     return controlPanel;
   }
-  
+
   /**
    * 重置所有参数为默认值
    */
@@ -256,7 +270,7 @@ public class Display3dActivity extends Activity implements SensorEventListener {
     dampingFactor = DEFAULT_DAMPING_FACTOR;
     velocityThreshold = DEFAULT_VELOCITY_THRESHOLD;
     springStrength = DEFAULT_SPRING_STRENGTH;
-    
+
     // 更新UI显示
     accelSensitivityText.setText(String.format("%.2f", accelSensitivity));
     gyroSensitivityText.setText(String.format("%.2f", gyroSensitivity));
@@ -264,7 +278,7 @@ public class Display3dActivity extends Activity implements SensorEventListener {
     dampingFactorText.setText(String.format("%.3f", dampingFactor));
     velocityThresholdText.setText(String.format("%.3f", velocityThreshold));
     springStrengthText.setText(String.format("%.3f", springStrength));
-    
+
     // 更新SeekBar位置
     accelSeekBar.setProgress((int) ((accelSensitivity - 0.1f) / 9.9f * 100));
     gyroSeekBar.setProgress((int) ((gyroSensitivity - 1f) / 49f * 100));
@@ -272,14 +286,14 @@ public class Display3dActivity extends Activity implements SensorEventListener {
     dampingSeekBar.setProgress((int) ((dampingFactor - 0.5f) / 0.49f * 100));
     velocitySeekBar.setProgress((int) ((velocityThreshold - 0.01f) / 0.19f * 100));
     springSeekBar.setProgress((int) ((springStrength - 0.01f) / 0.19f * 100));
-    
+
     // 重置传感器状态
     offsetX = 0f;
     offsetY = 0f;
     velocityX = 0f;
     velocityY = 0f;
   }
-  
+
   /**
    * 创建单个参数控制组件
    */
@@ -429,8 +443,8 @@ public class Display3dActivity extends Activity implements SensorEventListener {
       // 平滑过渡到目标位置，结合弹簧力
       offsetX += (targetOffsetX - offsetX) * 0.12f + springForceX;
       offsetY += (targetOffsetY - offsetY) * 0.12f + springForceY;
-      
-    } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+    }
+    else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
       // 获取陀螺仪数据（角速度）
       float gyroX = event.values[0]; // 绕X轴旋转（俯仰）
       float gyroY = event.values[1]; // 绕Y轴旋转（偏航）
@@ -606,10 +620,7 @@ public class Display3dActivity extends Activity implements SensorEventListener {
         // 宽度match_parent，高度根据图片比例计算
         float aspectRatio = (float) originalBitmap.getHeight() / originalBitmap.getWidth();
         int height = (int) (width * aspectRatio);
-        
-        // 确保高度至少有一个最小值，避免过小
-        height = Math.max(height, 400);
-        
+
         setMeasuredDimension(width, height);
       }
     }

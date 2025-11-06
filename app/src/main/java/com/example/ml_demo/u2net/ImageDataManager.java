@@ -12,6 +12,8 @@ public class ImageDataManager {
     private Bitmap resultBitmap;
     private Bitmap maskBitmap;
     private Bitmap croppedBitmap;
+    private Bitmap outlineBitmap;
+    private Bitmap shadowBitmap;
 
     private ImageDataManager() {
     }
@@ -33,11 +35,13 @@ public class ImageDataManager {
     /**
      * 设置图片和预测数据
      */
-    public void setData(Bitmap originalBitmap, Bitmap resultBitmap, Bitmap maskBitmap, Bitmap croppedBitmap) {
+    public void setData(Bitmap originalBitmap, Bitmap resultBitmap, Bitmap maskBitmap, Bitmap croppedBitmap, Bitmap outlineBitmap, Bitmap shadowBitmap) {
         this.originalBitmap = originalBitmap;
         this.resultBitmap = resultBitmap;
         this.maskBitmap = maskBitmap;
         this.croppedBitmap = croppedBitmap;
+        this.outlineBitmap = outlineBitmap;
+        this.shadowBitmap = shadowBitmap;
     }
 
     /**
@@ -66,6 +70,20 @@ public class ImageDataManager {
      */
     public Bitmap getCroppedBitmap() {
         return croppedBitmap;
+    }
+
+    /**
+     * 获取描边图像
+     */
+    public Bitmap getOutlineBitmap() {
+        return outlineBitmap;
+    }
+
+    /**
+     * 获取阴影图像
+     */
+    public Bitmap getShadowBitmap() {
+        return shadowBitmap;
     }
 
     /**

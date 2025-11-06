@@ -20,7 +20,13 @@ import com.example.ml_demo.R;
 import com.example.ml_demo.common.BaseActivity;
 
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.Point;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.photo.Photo;
 import org.pytorch.IValue;
@@ -51,23 +57,30 @@ public class MainActivity extends BaseActivity {
   private static final int OPENCV_FORWARD_SUCCESS = 6;
   private static final int OPENCV_FORWARD_FAIL = 7;
   private static final int SAVE_IMAGE_SUCCESS = 8;
-  public final int WIDTH_SIZE = 320;
-  public final int HEIGHT_SIZE = 320;
-  public final float LEVEL = 0.1f;
-
+  public final int WIDTH_SIZE = 320; // U2-NET的模型输入宽度尺寸
+  public final int HEIGHT_SIZE = 320; // U2-NET的模型输入高度尺寸
+  public final int CONV_SIZE = 5; // 将输出结果进行上采样时高斯卷积核的卷积核尺寸，必须为奇数
+  public final float LEVEL = 0.1f;  // 归一化时的阈值，U2-NET 的输出是一个0~1的浮点数数组，通过 LEVEL 来区分前后景区域
+  public final int OUTLINE_WIDTH = 3; // 轮廓线宽度
+  public final int SHADOW_DX = 10; // 阴影x方向偏移量
+  public final int SHADOW_DY = 10; // 阴影y方向偏移量
   private Module mModule;
-  private Button segmentImageButton;
-  private Button display3DButton;
+  private Button outlineButton;
+  private Button resultButton;
+  private Button shadowButton;
   private TextView statusText;
   private Spinner modelSpinner;
 
 
-  private String currentModelName = U2NETP_MODULE;
+  private String currentModelName = U2NET_MODULE;
+  private String currentFileName;
   private Bitmap currentOriginalBitmap;
   private Bitmap currentResultBitmap;
   private float[] currentPredictions;
   private Bitmap currentMaskBitmap;
   private Bitmap currentCroppedBitmap;
+  private Bitmap currentOutlineBitmap;
+  private Bitmap currentShadowBitmap;
   private int originalWidth;
   private int originalHeight;
   private boolean isSaving = false;
@@ -90,8 +103,9 @@ public class MainActivity extends BaseActivity {
   protected void initView() {
     super.initView();
     statusText = findViewById(R.id.statusText);
-    segmentImageButton = findViewById(R.id.segmentImageButton);
-    display3DButton = findViewById(R.id.display3DButton);
+    outlineButton = findViewById(R.id.outlineButton);
+    resultButton = findViewById(R.id.resultButton);
+    shadowButton = findViewById(R.id.shadowButton);
     modelSpinner = findViewById(R.id.modelSpinner);
     mLoadingText = findViewById(R.id.loadingText);
     mLoadingLayout = findViewById(R.id.loadingLayout);
@@ -119,16 +133,17 @@ public class MainActivity extends BaseActivity {
         }
       }
     });
-    segmentImageButton.setOnClickListener(new View.OnClickListener() {
+    outlineButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
         if (isSaving) {
           Toast.makeText(MainActivity.this, "正在保存结果，请稍后", Toast.LENGTH_SHORT).show();
           return;
         }
-        if (currentOriginalBitmap != null && currentResultBitmap != null && currentMaskBitmap != null && currentCroppedBitmap != null) {
-          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentMaskBitmap, currentCroppedBitmap);
-          Intent intent = new Intent(MainActivity.this, DisplaySegmentActivity.class);
+        if (currentOriginalBitmap != null && currentResultBitmap != null && currentMaskBitmap != null && currentCroppedBitmap != null && currentOutlineBitmap != null && currentShadowBitmap != null) {
+          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentMaskBitmap, currentCroppedBitmap, currentOutlineBitmap, currentShadowBitmap);
+          Intent intent = new Intent(MainActivity.this, Display3dActivity.class);
+          intent.putExtra("action", "isOutline");
           startActivity(intent);
         } else {
           Toast.makeText(MainActivity.this, "请先选择图片", Toast.LENGTH_SHORT).show();
@@ -136,16 +151,36 @@ public class MainActivity extends BaseActivity {
       }
     });
 
-    display3DButton.setOnClickListener(new View.OnClickListener() {
+    resultButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
         if (isSaving) {
           Toast.makeText(MainActivity.this, "正在保存结果，请稍后", Toast.LENGTH_SHORT).show();
           return;
         }
-        if (currentOriginalBitmap != null && currentResultBitmap != null && currentMaskBitmap != null && currentCroppedBitmap != null) {
-          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentMaskBitmap, currentCroppedBitmap);
+        if (currentOriginalBitmap != null && currentResultBitmap != null && currentMaskBitmap != null && currentCroppedBitmap != null && currentOutlineBitmap != null && currentShadowBitmap != null) {
+          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentMaskBitmap, currentCroppedBitmap, currentOutlineBitmap, currentShadowBitmap);
           Intent intent = new Intent(MainActivity.this, Display3dActivity.class);
+          intent.putExtra("action", "isResult");
+          startActivity(intent);
+        } else {
+          Toast.makeText(MainActivity.this, "请先选择图片", Toast.LENGTH_SHORT).show();
+        }
+      }
+    });
+
+
+    shadowButton.setOnClickListener(new View.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        if (isSaving) {
+          Toast.makeText(MainActivity.this, "正在保存结果，请稍后", Toast.LENGTH_SHORT).show();
+          return;
+        }
+        if (currentOriginalBitmap != null && currentResultBitmap != null && currentMaskBitmap != null && currentCroppedBitmap != null && currentOutlineBitmap != null && currentShadowBitmap != null) {
+          ImageDataManager.getInstance().setData(currentOriginalBitmap, currentResultBitmap, currentMaskBitmap, currentCroppedBitmap, currentOutlineBitmap, currentShadowBitmap);
+          Intent intent = new Intent(MainActivity.this, Display3dActivity.class);
+          intent.putExtra("action", "isShadow");
           startActivity(intent);
         } else {
           Toast.makeText(MainActivity.this, "请先选择图片", Toast.LENGTH_SHORT).show();
@@ -218,7 +253,7 @@ public class MainActivity extends BaseActivity {
     modelSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
       @Override
       public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-        String selectedModel = position == 0 ? U2NETP_MODULE : U2NET_MODULE;
+        String selectedModel = position == 0 ? U2NET_MODULE : U2NETP_MODULE;
         if (!selectedModel.equals(currentModelName)) {
           currentModelName = selectedModel;
           showLoading("正在加载模型...");
@@ -276,10 +311,13 @@ public class MainActivity extends BaseActivity {
               u2netProcessImage(imageUri);
               opencvProcessImage();
               isSaving = true;
-              saveBitmapToTempFile(currentOriginalBitmap, "u2net_original");
-              saveBitmapToTempFile(currentResultBitmap, "u2net_result");
-              saveBitmapToTempFile(currentMaskBitmap, "u2net_mask");
-              saveBitmapToTempFile(currentCroppedBitmap, "u2net_cropped");
+              String modelName = currentModelName.equals(U2NETP_MODULE) ? "u2netp" : "u2net";
+              saveBitmapToTempFile(currentOriginalBitmap, modelName + "_original");
+              saveBitmapToTempFile(currentResultBitmap, modelName + "_result");
+              saveBitmapToTempFile(currentMaskBitmap, modelName + "_mask");
+              saveBitmapToTempFile(currentCroppedBitmap, modelName + "_cropped");
+              saveBitmapToTempFile(currentOutlineBitmap, modelName + "_outline");
+              saveBitmapToTempFile(currentShadowBitmap, modelName + "_shadow");
               isSaving = false;
               mMainHandler.sendMessage(Message.obtain(mMainHandler, SAVE_IMAGE_SUCCESS));
             } catch (Exception e) {
@@ -323,6 +361,11 @@ public class MainActivity extends BaseActivity {
       currentResultBitmap = transformTensor2Image(output, originalWidth, originalHeight);
       currentCroppedBitmap = createCroppedBitmap(currentOriginalBitmap, currentPredictions);
       currentMaskBitmap = normalizeMask(currentPredictions, LEVEL);
+
+      // 借助高质量的Cropped和高质量的Mask一起进行描边或者阴影
+      currentOutlineBitmap = addOutline(currentCroppedBitmap, currentMaskBitmap, OUTLINE_WIDTH);
+      currentShadowBitmap = addShadow(currentCroppedBitmap, currentMaskBitmap, SHADOW_DX, SHADOW_DY);
+
       long postProcessTime = System.currentTimeMillis() - startTime - preProcessTime - inferenceTime;
 
       // 耗时统计
@@ -333,53 +376,54 @@ public class MainActivity extends BaseActivity {
     }
   }
 
-  private void opencvProcessImage(){
-    new Thread(() -> {
-      try {
-        long startTime = System.currentTimeMillis();
-        // 调用OpenCV方法
-        Mat src = new Mat();
-        Mat mask = new Mat();
-        Mat result = new Mat();
-        Utils.bitmapToMat(currentOriginalBitmap, src);
-        Utils.bitmapToMat(currentMaskBitmap, mask);
+  private void opencvProcessImage() {
+    try {
+      long startTime = System.currentTimeMillis();
+      // 调用OpenCV方法
+      Mat src = new Mat();
+      Mat mask = new Mat();
+      Mat cropped = new Mat();
+      Mat result = new Mat();
+      Utils.bitmapToMat(currentOriginalBitmap, src);
+      Utils.bitmapToMat(currentMaskBitmap, mask);
+      Utils.bitmapToMat(currentCroppedBitmap, cropped);
 
-        // 关键修复：转换图像格式
-        // 1. 将源图像从RGBA转换为RGB（如果是4通道）
-        if (src.channels() == 4) {
-          Imgproc.cvtColor(src, src, Imgproc.COLOR_RGBA2RGB);
-        }
-
-        // 2. 将mask转换为单通道灰度图
-        if (mask.channels() > 1) {
-          Imgproc.cvtColor(mask, mask, Imgproc.COLOR_BGR2GRAY);
-        }
-
-        // 3. 确保mask是二值图像（0或255）
-        Imgproc.threshold(mask, mask, 127, 255, Imgproc.THRESH_BINARY);
-
-        long preProcessTime = System.currentTimeMillis() - startTime;
-
-        // OpenCV修复
-        Photo.inpaint(src, mask, result, 3, Photo.INPAINT_TELEA);
-
-        long inferenceTime = System.currentTimeMillis() - startTime - preProcessTime;
-
-        currentResultBitmap = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(result, currentResultBitmap);
-
-        long postProcessTime = System.currentTimeMillis() - startTime - preProcessTime - inferenceTime;
-        String info = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preProcessTime, inferenceTime, postProcessTime);
-        mMainHandler.sendMessage(Message.obtain(mMainHandler, OPENCV_FORWARD_SUCCESS, info));
-
-        src.release();
-        mask.release();
-        result.release();
-      } catch (Exception e) {
-        mMainHandler.sendMessage(Message.obtain(mMainHandler, OPENCV_FORWARD_FAIL, e));
-        e.printStackTrace();
+      // 1. 将源图像从RGBA转换为RGB（如果是4通道）
+      if (src.channels() == 4) {
+        Imgproc.cvtColor(src, src, Imgproc.COLOR_RGBA2RGB);
       }
-    }).start();
+
+      // 2. 将mask转换为单通道灰度图
+      if (mask.channels() > 1) {
+        Imgproc.cvtColor(mask, mask, Imgproc.COLOR_BGR2GRAY);
+      }
+
+      // 3. 确保mask是二值图像（0或255）
+      Imgproc.threshold(mask, mask, 127, 255, Imgproc.THRESH_BINARY);
+
+      long preProcessTime = System.currentTimeMillis() - startTime;
+
+      // OpenCV修复
+      Photo.inpaint(src, mask, result, 3, Photo.INPAINT_TELEA);
+
+      long inferenceTime = System.currentTimeMillis() - startTime - preProcessTime;
+
+      currentResultBitmap = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
+      Utils.matToBitmap(result, currentResultBitmap);
+      Utils.matToBitmap(cropped, currentCroppedBitmap);
+
+      long postProcessTime = System.currentTimeMillis() - startTime - preProcessTime - inferenceTime;
+      String info = String.format("\n预处理时间: %dms\n推理时间: %dms\n后处理时间: %dms\n", preProcessTime, inferenceTime, postProcessTime);
+      mMainHandler.sendMessage(Message.obtain(mMainHandler, OPENCV_FORWARD_SUCCESS, info));
+
+      src.release();
+      mask.release();
+      cropped.release();
+      result.release();
+    } catch (Exception e) {
+      mMainHandler.sendMessage(Message.obtain(mMainHandler, OPENCV_FORWARD_FAIL, e));
+      e.printStackTrace();
+    }
   }
 
   private float[] normalizePredictions(float[] preds) {
@@ -401,12 +445,123 @@ public class MainActivity extends BaseActivity {
   }
 
   private Bitmap normalizeMask(float[] preds, float level) {
-    // 归一化到 (0, 1) 二值
-    for (int i = 0; i < preds.length; i++) {
-      preds[i] = preds[i] >= level ? 1f : 0f;
+    // 图像上采样，float[] -> 大尺寸bitmap
+    Bitmap res = transformFloatArray2Image(preds, WIDTH_SIZE, HEIGHT_SIZE, originalWidth, originalHeight);
+    Mat ori = new Mat();
+    Utils.bitmapToMat(res, ori);
+    // 对bitmap使用高斯卷积核做高斯模糊
+    Imgproc.GaussianBlur(ori, ori, new Size(CONV_SIZE, CONV_SIZE), 0);
+    Utils.matToBitmap(ori, res);
+    ori.release();
+
+    int width = res.getWidth();
+    int height = res.getHeight();
+
+    // 对卷积后的结果进行二值归一化
+    for (int i = 0; i < height; i++) {
+      for (int j = 0; j < width; j++) {
+        int pixel = res.getPixel(j, i);
+        int gray = (int) (0.299 * Color.red(pixel) + 0.587 * Color.green(pixel) + 0.114 * Color.blue(pixel));
+        if (gray < level) {
+          res.setPixel(j, i, Color.BLACK);
+        } else {
+          res.setPixel(j, i, Color.WHITE);
+        }
+      }
     }
 
-    return transformFloatArray2Image(preds, WIDTH_SIZE, HEIGHT_SIZE, originalWidth, originalHeight);
+    return res;
+  }
+
+  private Bitmap addOutline(Bitmap origBitmap, Bitmap maskBitmap, int radius) {
+    Mat orig = new Mat();
+    Mat mask = new Mat();
+    Utils.bitmapToMat(origBitmap, orig);
+    Utils.bitmapToMat(maskBitmap, mask);
+    if (mask.channels() > 1) {
+      Imgproc.cvtColor(mask, mask, Imgproc.COLOR_BGR2GRAY);
+    }
+
+    List<MatOfPoint> contours = new ArrayList<>();
+    Mat hierarchy = new Mat();
+    Imgproc.findContours(mask, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+
+    // 创建一个纯黑图片
+    Mat result = new Mat(
+        orig.rows(),
+        orig.cols(),
+        CvType.CV_8UC1,
+        new Scalar(0)
+    );
+
+    // 使用白色描绘出边缘
+    for (int i = 0; i < contours.size(); i++) {
+      Imgproc.drawContours(
+          result,
+          contours,
+          i,
+          new Scalar(255), 2 * radius,
+          Imgproc.LINE_AA
+      );
+      MatOfPoint contour = contours.get(i);
+      Point[] points = contour.toArray();
+      for (Point point : points) {
+        Imgproc.circle(
+            result,
+            point,
+            radius,
+            new Scalar(255),
+            -1,
+            Imgproc.LINE_AA
+        );
+      }
+    }
+
+    Core.subtract(result, mask, result);
+
+    // 当前默认是黑色描边，所以颜色是#FF000000
+    Mat black = new Mat(orig.size(), orig.type(), new Scalar(0, 0, 0, 255));
+    black.copyTo(orig, result);
+    Bitmap resBitmap = Bitmap.createBitmap(orig.cols(), orig.rows(), Bitmap.Config.ARGB_8888);
+    Utils.matToBitmap(orig, resBitmap);
+    orig.release();
+    mask.release();
+    result.release();
+    hierarchy.release();
+    contours.clear();
+    black.release();
+    return resBitmap;
+  }
+
+  private Bitmap addShadow(Bitmap origBitmap, Bitmap maskBitmap, int dx, int dy) {
+    Mat orig = new Mat();
+    Mat mask = new Mat();
+    Utils.bitmapToMat(origBitmap, orig);
+    Utils.bitmapToMat(maskBitmap, mask);
+    if (mask.channels() > 1) {
+      Imgproc.cvtColor(mask, mask, Imgproc.COLOR_BGR2GRAY);
+    }
+
+    Mat transMat = Mat.zeros(2, 3, CvType.CV_32FC1);
+    transMat.put(0, 0, 1, 0, dx);
+    transMat.put(1, 0, 0, 1, dy);
+
+    Mat shadow = Mat.zeros(mask.rows(), mask.cols(), CvType.CV_8UC1);
+    Imgproc.warpAffine(mask, shadow, transMat, mask.size());
+
+    Core.subtract(shadow, mask, shadow);
+
+    // 当前默认是黑色描边，所以颜色是#FF000000
+    Mat black = new Mat(orig.size(), orig.type(), new Scalar(0, 0, 0, 255));
+    black.copyTo(orig, shadow);
+    Bitmap resBitmap = Bitmap.createBitmap(orig.cols(), orig.rows(), Bitmap.Config.ARGB_8888);
+    Utils.matToBitmap(orig, resBitmap);
+    orig.release();
+    mask.release();
+    transMat.release();
+    shadow.release();
+    black.release();
+    return resBitmap;
   }
 
   private Bitmap createCroppedBitmap(Bitmap originalBitmap, float[] predictions) {

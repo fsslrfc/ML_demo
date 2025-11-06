@@ -137,20 +137,27 @@
                     android:orientation="horizontal">
 
                     <Button
-                        android:id="@+id/segmentImageButton"
+                        android:id="@+id/outlineButton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginEnd="10dp"
-                        android:text="图像分割" />
+                        android:text="描边效果" />
 
                     <Button
-                        android:id="@+id/display3DButton"
+                        android:id="@+id/resultButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="分割效果" />
+
+                    <Button
+                        android:id="@+id/shadowButton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="10dp"
-                        android:text="3D效果" />
+                        android:text="阴影效果" />
 
                 </LinearLayout>
 
